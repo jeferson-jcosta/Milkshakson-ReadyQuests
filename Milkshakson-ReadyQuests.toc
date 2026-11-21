@@ -1,0 +1,25 @@
+## Interface: 16001
+## Title: Milkshakson - Ready Quests
+## Category: Milkshakson
+## Notes: Lists quests in your log that are complete and ready to turn in.
+## Notes-ptBR: Lista as quests do log que já estão completas e só falta entregar.
+## Author: JJC
+## Version: 2.6.2
+## OptionalDeps: ShortestPathForever, TomTom, Pawn, GearQuestForever, Questie, QuestieDB
+## IconTexture: Interface\GossipFrame\ActiveQuestIcon
+## SavedVariables: ReadyQuestsDB
+## AddonCompartmentFunc: ReadyQuests_OnAddonCompartmentClick
+
+Libs\MilkshaksonUI.lua
+
+# Locale system + English (required)
+Locales\Locales.lua
+Locales\enUS.lua
+
+# Language packs (optional — remove a line or delete the file to drop a language)
+Locales\ptBR.lua
+
+Rewards.lua
+Extra.lua
+ReadyQuests.lua
+Options.lua
