@@ -16,6 +16,7 @@ function ns:BuildOptions(db)
     UI:Check(p, L.CFG_LOCK_SIZE, L.CFG_LOCK_SIZE_TIP, function() return db.lockSize end, function(v) db.lockSize = v; R() end)
     UI:Slider(p, L.CFG_WIDTH, 220, 800, 10, "%d", function() return db.width end, function(v) db.width = v; R() end)
     UI:Slider(p, L.CFG_MAXH, 70, 1200, 10, "%d", function() return db.maxHeight end, function(v) db.maxHeight = v; R() end)
+    UI:Check(p, L.CFG_FIT_HEIGHT, L.CFG_FIT_HEIGHT_TIP, function() return db.fitHeight end, function(v) db.fitHeight = v; R() end)
     UI:Buttons(p, {
         { L.CFG_RESET, function() SlashCmdList.READYQUESTS("reset") end },
     })
