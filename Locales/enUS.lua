@@ -128,3 +128,5 @@ L.CFG_HIDE_TIP       = "It comes back when you close this window or turn this of
 L.COLLAPSE           = "Collapse"
 L.EXPAND             = "Expand"
 L.HELP_MIN           = "/rq min - collapse/expand the window"
+L.CFG_AVOID_FDJ      = "Move below Forever Dungeon Journal's run tracker when it covers this window"
+L.CFG_AVOID_FDJ_TIP  = "Goes back to its place when the run tracker closes. Dragging this window turns it off until then."

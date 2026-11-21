@@ -13,7 +13,7 @@ local db
 local defaults = { shown = true, locked = false, autoHide = true, point = nil, locale = nil,
     width = WIDTH, maxHeight = 400, showRewards = true, showPlace = true, showChain = true,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
-    hideQuestie = false, hideBlizzard = false, collapsedWindow = false }
+    hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
 
 ---------------------------------------------------------------------------
@@ -548,11 +548,73 @@ frame:Hide()
 frame:SetScript("OnDragStart", function(self)
     if not db.locked then self:StartMoving() end
 end)
+local dock = { active = false, userMoved = false }
+
+local function HomePoint()
+    frame:ClearAllPoints()
+    if db and db.point then
+        frame:SetPoint(db.point[1], UIParent, db.point[2], db.point[3], db.point[4])
+    else
+        frame:SetPoint("RIGHT", UIParent, "RIGHT", -260, 120)
+    end
+end
+
 frame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
     local p, _, rp, x, y = self:GetPoint()
     db.point = { p, rp, x, y }
+    if dock.active then dock.active, dock.userMoved = false, true end
 end)
+
+-- ForeverDungeonJournal's run tracker (bosses, timer) opens in the same corner.
+-- While it is shown and covers this window, sit right below it; go back home
+-- when it closes. Dragging this window turns it off until the tracker closes.
+local function Rect(f)
+    local l, b, w, h = f:GetRect()
+    if not l then return nil end
+    local k = f:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    return l * k, b * k, (l + w) * k, (b + h) * k
+end
+
+local function Overlaps(a, b)
+    local al, ab, ar, at = Rect(a)
+    local bl, bb, br, bt = Rect(b)
+    if not (al and bl) then return false end
+    return al < br and ar > bl and ab < bt and at > bb
+end
+
+local fdjHooked = false
+local function UpdateDock()
+    if not db then return end
+    local fdj = _G.ForeverDungeonJournalRunTracker
+    if fdj and not fdjHooked then
+        fdjHooked = true
+        fdj:HookScript("OnShow", function() C_Timer.After(0, UpdateDock) end)
+        fdj:HookScript("OnHide", function() C_Timer.After(0, UpdateDock) end)
+        fdj:HookScript("OnSizeChanged", function() C_Timer.After(0, UpdateDock) end)
+    end
+    local open = db.avoidFDJ and fdj and fdj:IsShown() and frame:IsShown()
+    if not open then
+        dock.userMoved = false
+        if dock.active then
+            dock.active = false
+            HomePoint()
+        end
+        return
+    end
+    if dock.userMoved then return end
+    if not dock.active then
+        HomePoint()
+        if not Overlaps(frame, fdj) then return end
+        dock.active = true
+    end
+    local l, b, r = Rect(fdj)
+    if not l then return end
+    local myR = select(3, Rect(frame)) or r
+    frame:ClearAllPoints()
+    frame:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", myR, b - 4)
+end
+ns.UpdateDock = function() UpdateDock() end
 
 local header = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 header:SetPoint("TOPLEFT", 24, -7)
@@ -1267,6 +1329,7 @@ function Refresh()
     local visible = db.shown and not (db.autoHide and counts.all == 0)
     frame:SetShown(visible)
     ApplyTrackerHiding()
+    UpdateDock()
 end
 
 ns.Refresh = function() Refresh() end
@@ -1332,10 +1395,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
         end
         ns:ApplyLocale(db.locale)
         if ns.BuildOptions and not ns.optionsCategory then ns:BuildOptions(db) end
-        if db.point then
-            frame:ClearAllPoints()
-            frame:SetPoint(db.point[1], UIParent, db.point[2], db.point[3], db.point[4])
-        end
+        HomePoint()
         return
     end
     if event == "UNIT_QUEST_LOG_CHANGED" and arg1 ~= "player" then return end
@@ -1375,8 +1435,9 @@ SlashCmdList.READYQUESTS = function(msg)
     elseif msg == "reset" then
         db.point = nil
         db.width, db.maxHeight = WIDTH, 400
-        frame:ClearAllPoints()
-        frame:SetPoint("RIGHT", UIParent, "RIGHT", -260, 120)
+        dock.active, dock.userMoved = false, false
+        HomePoint()
+        UpdateDock()
         print(PREFIX .. L.RESET)
     elseif msg:match("^tab") then
         local arg = strtrim(msg:sub(4))

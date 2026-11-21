@@ -12,6 +12,7 @@
 - Collapse/expand button (+/-) like Questie's tracker; `/rq min`.
 - Inside dungeons, distances are measured from where you entered, so the list keeps its order.
 - The All tab shows quests/log size (e.g. 28/40).
+- Moves below Forever Dungeon Journal's run tracker (bosses window) while it covers the window, and goes back when it closes.
 
 ## 2.6.2
 - `/mrq debug` shows the saved options.

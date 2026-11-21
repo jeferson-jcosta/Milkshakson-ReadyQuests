@@ -128,3 +128,5 @@ L.CFG_HIDE_TIP       = "Ele volta quando você fecha esta janela ou desmarca a o
 L.COLLAPSE           = "Recolher"
 L.EXPAND             = "Expandir"
 L.HELP_MIN           = "/rq min (ou /rq recolher) - recolhe/expande a janela"
+L.CFG_AVOID_FDJ      = "Ir para baixo da janela de bosses do Forever Dungeon Journal quando ela cobrir esta"
+L.CFG_AVOID_FDJ_TIP  = "Volta ao lugar quando a janela de bosses fecha. Arrastar esta janela desliga isso até lá."

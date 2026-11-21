@@ -29,6 +29,7 @@ function ns:BuildOptions(db)
     UI:Check(p, L.CFG_AUTOSWITCH, nil, function() return db.autoSwitch end, function(v) db.autoSwitch = v; R() end)
     UI:Check(p, L.CFG_HIDE_QUESTIE, L.CFG_HIDE_TIP, function() return db.hideQuestie end, function(v) db.hideQuestie = v; R() end)
     UI:Check(p, L.CFG_HIDE_BLIZZ, L.CFG_HIDE_TIP, function() return db.hideBlizzard end, function(v) db.hideBlizzard = v; R() end)
+    UI:Check(p, L.CFG_AVOID_FDJ, L.CFG_AVOID_FDJ_TIP, function() return db.avoidFDJ end, function(v) db.avoidFDJ = v; R() end)
 
     UI:Section(p, L.CFG_ROUTE)
     UI:Buttons(p, {
