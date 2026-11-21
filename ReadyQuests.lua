@@ -307,7 +307,7 @@ local function CollectQuests()
                 q.eta = TravelSeconds(q, pmap, px, py)
                 q.rewards = ns:GetRewards(id)
                 q.place, q.placeName = ns:GetPlace(q.map, q.x, q.y)
-                q.chain = ns:GetChain(id)
+                q.chain = ns:GetChain(id, q.map or pmap)
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
                 q.side, q.sideText = ns:GetTurnInSide(q)
                 if InCurrentInstance(inst, q, zname) then
@@ -864,7 +864,9 @@ local function RewardTags(q, xpState)
         t[#t + 1] = "|cffa335ee[" .. name .. "]|r"
     end
     if db.showChain and q.chain then
-        t[#t + 1] = "|cffffcc00" .. L.TAG_CHAIN:format(q.chain.pos, q.chain.total) .. "|r"
+        local c = q.chain
+        local text = c.source == "questline" and L.TAG_CHAIN:format(c.pos, c.total) or L.TAG_CHAIN_STEP:format(c.pos)
+        t[#t + 1] = "|cffffcc00" .. text .. "|r"
     end
     local r = q.rewards
     if not r or not db.showRewards then return table.concat(t, " ") end
@@ -1055,10 +1057,16 @@ local function Row_OnEnter(self)
         GameTooltip:AddLine(L.QTYPE_LINE:format(q.qtypeName or q.qtype), 0.75, 0.45, 1)
     end
     if q.chain then
-        GameTooltip:AddLine(L.CHAIN_POS:format(q.chain.pos, q.chain.total) .. (q.chain.name and (" - " .. q.chain.name) or ""), 1, 0.8, 0)
+        local c = q.chain
+        local pos = c.source == "questline" and L.CHAIN_POS:format(c.pos, c.total) or L.CHAIN_STEP:format(c.pos)
+        GameTooltip:AddLine(pos .. (c.name and (" - " .. c.name) or ""), 1, 0.8, 0)
+        if c.prevID and C_QuestLog.GetTitleForQuestID then
+            local pt = C_QuestLog.GetTitleForQuestID(c.prevID)
+            if pt then GameTooltip:AddLine(L.CHAIN_PREV:format(pt), 0.8, 0.8, 0.8, true) end
+        end
         if q.chain.nextID then
             GameTooltip:AddLine(L.CHAIN_NEXT:format(q.chain.nextName or ("#" .. q.chain.nextID)), 1, 1, 1, true)
-        else
+        elseif q.chain.source == "questline" then
             GameTooltip:AddLine(L.CHAIN_LAST, 0.7, 0.7, 0.7)
         end
     end

@@ -56,137 +56,135 @@ function ns:GetPlace(map, x, y)
 end
 
 ---------------------------------------------------------------------------
--- Quest chains (Blizzard quest lines first, then Questie's database)
+-- Quest chains: one quest leads to another. Game API only:
+--  1. the game's quest lines (C_QuestLine), when it has one for the quest;
+--  2. links learned while playing: you turn a quest in and the same NPC
+--     offers / gives you the next one. Kept in ReadyQuestsDB.chainLinks
+--     (account-wide), so every character benefits.
 ---------------------------------------------------------------------------
 local chainCache = {}
 
-local function QuestieDB()
-    local QL = _G.QuestieLoader
-    if not (QL and QL.ImportModule) then return nil end
-    local ok, db = pcall(QL.ImportModule, QL, "QuestieDB")
-    if ok and type(db) == "table" and db.QueryQuestSingle then return db end
-end
-
-local function Q(db, id, key)
-    local ok, v = pcall(db.QueryQuestSingle, id, key)
-    if ok then return v end
-end
-
-local function FromQuestLine(questID)
+local function FromQuestLine(questID, mapID)
     if not (C_QuestLine and C_QuestLine.GetQuestLineInfo and C_QuestLine.GetQuestLineQuests) then return nil end
-    local ok, info = pcall(C_QuestLine.GetQuestLineInfo, questID)
+    local ok, info = pcall(C_QuestLine.GetQuestLineInfo, questID, mapID)
     if not (ok and type(info) == "table" and info.questLineID) then return nil end
     local ok2, quests = pcall(C_QuestLine.GetQuestLineQuests, info.questLineID)
     if not (ok2 and type(quests) == "table" and #quests > 1) then return nil end
     for i, id in ipairs(quests) do
         if id == questID then
-            return { name = info.questLineName, pos = i, total = #quests, nextID = quests[i + 1] }
+            return { name = info.questLineName, pos = i, total = #quests, nextID = quests[i + 1], source = "questline" }
         end
     end
 end
 
--- Questie marks many chains only backwards (the next step lists this one as
--- its prerequisite, nextQuestInChain stays empty). Reverse index
--- prerequisite -> follow-up quests, built once in small slices.
-local followUps, followBuilding
-
-local function PreOf(db, id)
-    local pre = Q(db, id, "preQuestSingle")
-    if type(pre) == "number" then return pre > 0 and pre or nil end
-    if type(pre) == "table" and #pre == 1 then return pre[1] end
-end
-
-local function BuildFollowUps(db, onDone)
-    if followUps or followBuilding then return end
-    local ptrs = db.QuestPointers
-    if type(ptrs) ~= "table" then return end
-    followBuilding = true
-    local ids = {}
-    for k, v in pairs(ptrs) do ids[#ids + 1] = type(k) == "number" and k or v end
-    local map, i = {}, 1
-    local function slice()
-        local stop = math.min(i + 499, #ids)
-        for n = i, stop do
-            local id = ids[n]
-            local p = type(id) == "number" and PreOf(db, id)
-            if p then
-                local t = map[p]
-                if not t then t = {}; map[p] = t end
-                t[#t + 1] = id
-            end
-        end
-        i = stop + 1
-        if i <= #ids then
-            C_Timer.After(0, slice)
-        else
-            followUps, followBuilding = map, false
-            C_Timer.After(0, onDone)
-        end
-    end
-    slice()
-end
-
-local function NextOf(db, id)
-    local n = Q(db, id, "nextQuestInChain")
-    if type(n) == "number" and n > 0 then return n end
-    local f = followUps and followUps[id]
-    if f and #f == 1 then return f[1] end
-    -- branching follow-ups: still a chain, but no single next step
-    if f and #f > 1 then return nil, true end
-end
-
-local function FromQuestie(questID)
-    local db = QuestieDB()
+-- Learned links: chainLinks[prev] = { [next] = true, ... }
+local prevOf -- next -> prev, rebuilt from chainLinks
+local function Links()
+    local db = _G.ReadyQuestsDB
     if not db then return nil end
-    local nextID, branches = NextOf(db, questID)
-
-    -- Steps after this one
-    local after, id, seen = (branches and 1 or 0), nextID, { [questID] = true }
-    while id and after < 40 and not seen[id] do
-        seen[id] = true
-        after = after + 1
-        local n, more = NextOf(db, id)
-        if more then after = after + 1 end
-        id = n
+    db.chainLinks = db.chainLinks or {}
+    if not prevOf then
+        prevOf = {}
+        for prev, nexts in pairs(db.chainLinks) do
+            for nxt in pairs(nexts) do prevOf[nxt] = prevOf[nxt] or prev end
+        end
     end
-    -- Steps before this one (single prerequisite chains)
-    local before, cur = 0, questID
+    return db.chainLinks
+end
+
+local function Learn(prev, nxt)
+    local links = Links()
+    if not (links and prev and nxt and prev ~= nxt) then return end
+    if links[prev] and links[prev][nxt] then return end
+    links[prev] = links[prev] or {}
+    links[prev][nxt] = true
+    prevOf[nxt] = prevOf[nxt] or prev
+    wipe(chainCache)
+    if ns.Refresh then ns.Refresh() end
+end
+
+local function OnlyNext(links, id)
+    local t = links[id]
+    if not t then return nil, false end
+    local only, n = nil, 0
+    for nxt in pairs(t) do only, n = nxt, n + 1 end
+    return n == 1 and only or nil, true
+end
+
+local function FromLearned(questID)
+    local links = Links()
+    if not links then return nil end
+    local before, cur, seen = 0, questID, { [questID] = true }
     while before < 40 do
-        local p = PreOf(db, cur)
+        local p = prevOf[cur]
         if not p or seen[p] then break end
         seen[p] = true
         before = before + 1
         cur = p
     end
-    if after == 0 and before == 0 then return nil end
-    local nextName = nextID and (Q(db, nextID, "name") or C_QuestLog.GetTitleForQuestID(nextID))
-    return { pos = before + 1, total = before + 1 + after, nextID = nextID, nextName = nextName, source = "questie" }
+    local nextID, hasNext = OnlyNext(links, questID)
+    if before == 0 and not hasNext then return nil end
+    local after, id = hasNext and 1 or 0, nextID
+    while id and after < 40 and not seen[id] do
+        seen[id] = true
+        local n, more = OnlyNext(links, id)
+        if not more then break end
+        after = after + 1
+        id = n
+    end
+    return {
+        pos = before + 1, total = before + 1 + after, nextID = nextID,
+        nextName = nextID and C_QuestLog.GetTitleForQuestID and C_QuestLog.GetTitleForQuestID(nextID) or nil,
+        prevID = prevOf[questID], source = "learned",
+    }
 end
 
-local function FromQuestLineTagged(questID)
-    local c = FromQuestLine(questID)
-    if c then c.source = "questline" end
-    return c
-end
-
--- Returns { pos, total, nextID, nextName, name } or false
-function ns:GetChain(questID)
+-- Returns { pos, total, nextID, nextName, name, source } or false
+function ns:GetChain(questID, mapID)
     local c = chainCache[questID]
     if c ~= nil then return c end
-    local qdb = QuestieDB()
-    if qdb and not followUps then
-        -- Questie still loading or index not built yet: answer without
-        -- caching, and refresh once the follow-up index is ready.
-        BuildFollowUps(qdb, function() wipe(chainCache); if ns.Refresh then ns.Refresh() end end)
-        return FromQuestLineTagged(questID) or FromQuestie(questID) or false
-    end
-    c = FromQuestLineTagged(questID) or FromQuestie(questID) or false
-    if c and c.nextID and not c.nextName then
+    c = FromQuestLine(questID, mapID) or FromLearned(questID) or false
+    if c and c.nextID and not c.nextName and C_QuestLog.GetTitleForQuestID then
         c.nextName = C_QuestLog.GetTitleForQuestID(c.nextID)
     end
     chainCache[questID] = c
     return c
 end
+
+-- Learning: remember the last turn-in and who took it; a quest offered or
+-- accepted from that same NPC right after is the next step.
+local LINK_WINDOW = 30
+local lastTurnIn -- { id, npc, t }
+local dialogNpc
+
+local function NpcGUID()
+    return UnitGUID and UnitGUID("npc") or nil
+end
+
+local function FromSameGiver(npc)
+    if not lastTurnIn or GetTime() - lastTurnIn.t > LINK_WINDOW then return false end
+    if lastTurnIn.npc and npc then return lastTurnIn.npc == npc end
+    -- no NPC on either side (auto-accepted follow-up): only right after
+    return GetTime() - lastTurnIn.t < 3
+end
+
+local learner = CreateFrame("Frame")
+for _, e in ipairs({ "QUEST_COMPLETE", "QUEST_TURNED_IN", "QUEST_DETAIL", "QUEST_ACCEPTED" }) do
+    pcall(learner.RegisterEvent, learner, e)
+end
+learner:SetScript("OnEvent", function(_, event, a, b)
+    if event == "QUEST_COMPLETE" then
+        dialogNpc = NpcGUID()
+    elseif event == "QUEST_TURNED_IN" then
+        lastTurnIn = { id = a, npc = NpcGUID() or dialogNpc, t = GetTime() }
+    elseif event == "QUEST_DETAIL" then
+        local id = GetQuestID and GetQuestID()
+        if id and id > 0 and lastTurnIn and FromSameGiver(NpcGUID()) then Learn(lastTurnIn.id, id) end
+    elseif event == "QUEST_ACCEPTED" then
+        local id = b or a -- classic: (logIndex, questID); modern: (questID)
+        if type(id) == "number" and lastTurnIn and FromSameGiver(NpcGUID()) then Learn(lastTurnIn.id, id) end
+    end
+end)
 
 ---------------------------------------------------------------------------
 -- Quest type (dungeon / raid / group ...), from the game's quest tags
