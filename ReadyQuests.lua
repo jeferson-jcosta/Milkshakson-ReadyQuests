@@ -456,9 +456,25 @@ local function SetWatched(id, on)
     end
 end
 
+-- Sharing: the game decides if a quest can be shared (IsPushableQuest).
+local function CanShare(q)
+    if not QuestLogPushQuest then return false, L.SHARE_NO_API end
+    if not (IsInGroup and IsInGroup()) then return false, L.SHARE_NO_GROUP end
+    if C_QuestLog.IsPushableQuest then
+        local ok, yes = pcall(C_QuestLog.IsPushableQuest, q.id)
+        if ok and not yes then return false, L.SHARE_NOT_SHAREABLE end
+    end
+    return true
+end
+
 local function ShareQuest(q)
-    if C_QuestLog.SetSelectedQuest then C_QuestLog.SetSelectedQuest(q.id) end
-    if QuestLogPushQuest then pcall(QuestLogPushQuest) end
+    if C_QuestLog.SetSelectedQuest then
+        C_QuestLog.SetSelectedQuest(q.id)
+    elseif SelectQuestLogEntry and GetQuestLogIndexByID then
+        SelectQuestLogEntry(GetQuestLogIndexByID(q.id))
+    end
+    local ok = pcall(QuestLogPushQuest)
+    if ok then print(PREFIX .. L.SHARE_SENT:format(q.title or "?")) end
 end
 
 local function AbandonQuest(q)
@@ -545,10 +561,11 @@ local function QuestMenu(owner, q)
         else
             root:CreateButton(L.MENU_TRACK, function() SetWatched(q.id, true) end)
         end
-        local pushable = C_QuestLog.IsPushableQuest and C_QuestLog.IsPushableQuest(q.id)
-        if pushable and IsInGroup and IsInGroup() then
-            root:CreateButton(L.MENU_SHARE, function() ShareQuest(q) end)
-        end
+        -- Always listed; greyed out (with the reason) when it cannot be shared now.
+        local canShare, why = CanShare(q)
+        local share = root:CreateButton(canShare and L.MENU_SHARE or ("|cff808080" .. L.MENU_SHARE .. " (" .. why .. ")|r"),
+            function() if canShare then ShareQuest(q) end end)
+        if not canShare and share and share.SetEnabled then pcall(share.SetEnabled, share, false) end
         if not q.ready then HelpMenu(root, q) end
         local canAbandon = not C_QuestLog.CanAbandonQuest or C_QuestLog.CanAbandonQuest(q.id)
         if canAbandon then
