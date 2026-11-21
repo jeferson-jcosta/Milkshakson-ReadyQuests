@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- `/rq debug` output also opens in a copy window (Ctrl+A, Ctrl+C) and is saved in the SavedVariables, since the chat can't be copied.
+
 ## 2.9.2
 - Clicking a quest now opens it on the map. "Go there" (route / waypoint) stays in the right-click menu.
 - Class and profession quests get an icon (your class icon / the profession icon) and a tooltip line, when the game files them in the quest log under your class or one of your professions. Option to hide it.

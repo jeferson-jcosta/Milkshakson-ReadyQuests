@@ -1936,8 +1936,74 @@ SLASH_READYQUESTS1 = "/rq"
 SLASH_READYQUESTS2 = "/readyquests"
 SLASH_READYQUESTS3 = "/entregar"
 SLASH_READYQUESTS4 = "/mrq"
+-- Copy window: the chat can't be copied, so debug output also opens here
+-- (Ctrl+A, Ctrl+C) and is saved in ReadyQuestsDB.lastDebug.
+local copyFrame
+local function ShowCopy(text)
+    if not copyFrame then
+        local f = CreateFrame("Frame", "ReadyQuestsCopyFrame", UIParent, "BackdropTemplate")
+        f:SetSize(620, 360)
+        f:SetPoint("CENTER")
+        f:SetFrameStrata("DIALOG")
+        if f.SetBackdrop then
+            f:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+                edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12,
+                insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+            f:SetBackdropColor(0, 0, 0, 0.92)
+        end
+        f:EnableMouse(true)
+        f:SetMovable(true)
+        f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", f.StartMoving)
+        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        local t = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        t:SetPoint("TOPLEFT", 10, -8)
+        t:SetText(L.COPY_TITLE)
+        local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+        close:SetPoint("TOPRIGHT", 0, 0)
+        local sf = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+        sf:SetPoint("TOPLEFT", 10, -28)
+        sf:SetPoint("BOTTOMRIGHT", -30, 10)
+        local eb = CreateFrame("EditBox", nil, sf)
+        eb:SetMultiLine(true)
+        eb:SetAutoFocus(false)
+        eb:SetFontObject(ChatFontNormal or GameFontHighlightSmall)
+        eb:SetWidth(570)
+        eb:SetScript("OnEscapePressed", function() f:Hide() end)
+        sf:SetScrollChild(eb)
+        f.edit = eb
+        tinsert(UISpecialFrames, "ReadyQuestsCopyFrame")
+        copyFrame = f
+    end
+    copyFrame.edit:SetText(text)
+    copyFrame:Show()
+    copyFrame.edit:SetFocus()
+    copyFrame.edit:HighlightText()
+end
+
+local RunSlash
 SlashCmdList.READYQUESTS = function(msg)
     msg = strtrim((msg or ""):lower())
+    if msg:match("^debug") then
+        local lines, orig = {}, print
+        print = function(...)
+            local t = { ... }
+            for i = 1, select("#", ...) do t[i] = tostring(t[i]) end
+            lines[#lines + 1] = (table.concat(t, " "):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+            orig(...)
+        end
+        local ok, err = pcall(RunSlash, msg)
+        print = orig
+        if not ok then geterrorhandler()(err) end
+        local text = table.concat(lines, "\n")
+        if db then db.lastDebug = { cmd = msg, at = date and date("%Y-%m-%d %H:%M:%S") or "", text = text } end
+        ShowCopy(text)
+        return
+    end
+    RunSlash(msg)
+end
+
+RunSlash = function(msg)
     if msg == "lock" then
         db.locked = not db.locked
         print(PREFIX .. (db.locked and L.LOCKED or L.UNLOCKED))
