@@ -784,6 +784,54 @@ routeBtn:SetScript("OnEnter", function(self)
 end)
 routeBtn:SetScript("OnLeave", GameTooltip_Hide)
 
+-- Share button (inside a dungeon, in a group) -----------------------------
+-- Left-click: this dungeon's quests. Right-click: every quest that can be
+-- shared. One quest per second, so the server takes them all.
+local SHARE_GAP = 1
+local shareQueue, sharing = {}, false
+
+local function ShareNext()
+    local q = table.remove(shareQueue, 1)
+    if not q then sharing = false; return end
+    if CanShare(q) then ShareQuest(q) end
+    C_Timer.After(SHARE_GAP, ShareNext)
+end
+
+local function ShareableQuests(dungeonOnly)
+    local out = {}
+    for _, q in ipairs((CollectQuests())) do
+        if CanShare(q) and (not dungeonOnly or q.inInstance) then out[#out + 1] = q end
+    end
+    return out
+end
+
+local function ShareMany(dungeonOnly)
+    local list = ShareableQuests(dungeonOnly)
+    if #list == 0 then print(PREFIX .. L.SHARE_NONE); return end
+    for _, q in ipairs(list) do shareQueue[#shareQueue + 1] = q end
+    if not sharing then sharing = true; ShareNext() end
+end
+
+local function InDungeonGroup()
+    if not (IsInInstance and IsInGroup and IsInGroup()) then return false end
+    local inInst, kind = IsInInstance()
+    return inInst and (kind == "party" or kind == "raid" or kind == "scenario") or false
+end
+
+local shareBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+shareBtn:SetSize(64, 18)
+shareBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+shareBtn:SetScript("OnClick", function(_, button) ShareMany(button ~= "RightButton") end)
+shareBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(L.SHARE_BTN)
+    GameTooltip:AddLine(L.SHARE_TIP:format(#ShareableQuests(true)), 1, 1, 1, true)
+    GameTooltip:AddLine(L.SHARE_TIP_RIGHT:format(#ShareableQuests(false)), 0.5, 0.8, 1, true)
+    GameTooltip:Show()
+end)
+shareBtn:SetScript("OnLeave", GameTooltip_Hide)
+shareBtn:Hide()
+
 -- Tab bar ------------------------------------------------------------------
 local tabs = {}
 local TAB_LABEL = { ready = "TAB_READY", progress = "TAB_PROGRESS", zone = "TAB_ZONE", all = "TAB_ALL" }
@@ -1416,6 +1464,13 @@ function Refresh()
     empty:SetShown(total == 0)
     routeBtn:SetText(L.ROUTE_BTN)
     routeBtn:SetShown(db.tab == "ready" and total > 0 and SPF() ~= nil)
+    shareBtn:SetText(L.SHARE_BTN)
+    local fs = shareBtn:GetFontString()
+    local w = fs and fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+    if type(w) == "number" then shareBtn:SetWidth(math.max(56, w + 20)) end
+    shareBtn:ClearAllPoints()
+    shareBtn:SetPoint("RIGHT", routeBtn:IsShown() and routeBtn or close, "LEFT", -2, 0)
+    shareBtn:SetShown(InDungeonGroup())
 
     local i, y = 0, 0
     for _, g in ipairs(groups) do
@@ -1588,6 +1643,10 @@ SlashCmdList.READYQUESTS = function(msg)
         else
             print(PREFIX .. L.HELP_TAB)
         end
+    elseif msg == "share" then
+        ShareMany(true)
+    elseif msg == "share all" then
+        ShareMany(false)
     elseif msg == "route" then
         RouteAll(false)
     elseif msg == "route here" then
@@ -1685,6 +1744,7 @@ SlashCmdList.READYQUESTS = function(msg)
         print(PREFIX .. L.HELP2)
         print(PREFIX .. L.HELP4)
         print(PREFIX .. L.HELP_TAB)
+        print(PREFIX .. L.HELP_SHARE)
         print(PREFIX .. L.HELP_MIN)
         print(PREFIX .. L.HELP_CONFIG)
         print(PREFIX .. L.HELP3:format(table.concat(ns:AvailableLocales(), ", ")))
