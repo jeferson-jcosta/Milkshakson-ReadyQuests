@@ -1,10 +1,10 @@
 ## Interface: 16001
 ## Title: Milkshakson - Ready Quests
 ## Category: Milkshakson
-## Notes: Lists quests in your log that are complete and ready to turn in.
-## Notes-ptBR: Lista as quests do log que já estão completas e só falta entregar.
+## Notes: Quest tracker with tabs: ready to turn in, in progress, current zone and the whole log.
+## Notes-ptBR: Tracker de quests com abas: prontas para entregar, em andamento, zona atual e o log inteiro.
 ## Author: JJC
-## Version: 2.6.2
+## Version: 2.7.0
 ## OptionalDeps: ShortestPathForever, TomTom, Pawn, GearQuestForever, Questie, QuestieDB
 ## IconTexture: Interface\GossipFrame\ActiveQuestIcon
 ## SavedVariables: ReadyQuestsDB

@@ -24,6 +24,12 @@ function ns:BuildOptions(db)
     UI:Check(p, L.CFG_SHOW_PLACE, L.CFG_SHOW_PLACE_TIP, function() return db.showPlace end, function(v) db.showPlace = v; R() end)
     UI:Check(p, L.CFG_SHOW_CHAIN, L.CFG_SHOW_CHAIN_TIP, function() return db.showChain end, function(v) db.showChain = v; R() end)
 
+    UI:Section(p, L.CFG_TRACKER)
+    UI:Check(p, L.CFG_SHOW_OBJ, nil, function() return db.showObjectives end, function(v) db.showObjectives = v; R() end)
+    UI:Check(p, L.CFG_AUTOSWITCH, nil, function() return db.autoSwitch end, function(v) db.autoSwitch = v; R() end)
+    UI:Check(p, L.CFG_HIDE_QUESTIE, L.CFG_HIDE_TIP, function() return db.hideQuestie end, function(v) db.hideQuestie = v; R() end)
+    UI:Check(p, L.CFG_HIDE_BLIZZ, L.CFG_HIDE_TIP, function() return db.hideBlizzard end, function(v) db.hideBlizzard = v; R() end)
+
     UI:Section(p, L.CFG_ROUTE)
     UI:Buttons(p, {
         { L.ROUTE_BTN, function() SlashCmdList.READYQUESTS("route") end, L.ROUTE_TIP },

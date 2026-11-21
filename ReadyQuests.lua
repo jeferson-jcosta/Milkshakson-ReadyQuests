@@ -5,12 +5,15 @@
 local ADDON, ns = ...
 local L = ns.L
 local PREFIX = "|cff33ff99[ReadyQuests]|r "
-local ROW_H, HEADER_H, WIDTH = 18, 18, 300
+local ROW_H, HEADER_H, OBJ_H, WIDTH = 18, 18, 14, 300
+local TOP = 48 -- header + tab bar
 local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, showRewards = true, showPlace = true, showChain = true }
+    width = WIDTH, maxHeight = 400, showRewards = true, showPlace = true, showChain = true,
+    tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
+    hideQuestie = false, hideBlizzard = false }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
 
 ---------------------------------------------------------------------------
@@ -132,15 +135,16 @@ local function IsReady(id)
     return ready and not (C_QuestLog.IsFailed and C_QuestLog.IsFailed(id))
 end
 
--- questID -> { map, x, y } of the turn-in POI. Scans the player's own map
--- first (also when inside a dungeon), then every zone, then dungeon/cave maps,
--- and stops as soon as every ready quest has a location.
+-- questID -> { map, x, y } of the quest's POI (turn-in for ready quests,
+-- objective area otherwise). Scans the player's own map first (also inside a
+-- dungeon), then every zone, then dungeon/cave maps, and stops as soon as
+-- every quest in the log has a location.
 local function RebuildPOIs()
     wipe(poiCache)
     local wanted, missing = {}, 0
     for i = 1, C_QuestLog.GetNumQuestLogEntries() do
         local info = C_QuestLog.GetInfo(i)
-        if info and not info.isHeader and info.questID and info.questID > 0 and IsReady(info.questID) then
+        if info and not info.isHeader and info.questID and info.questID > 0 then
             wanted[info.questID] = true
             missing = missing + 1
         end
@@ -168,7 +172,7 @@ local function RebuildPOIs()
     poiDirty = false
 end
 
-local function TurnInLocation(id)
+local function QuestLocation(id)
     local p = poiCache[id]
     if p then return p.map, p.x, p.y end
     if C_QuestLog.GetNextWaypoint then
@@ -177,11 +181,32 @@ local function TurnInLocation(id)
     end
 end
 
-local function GetReadyQuests()
+local function Objectives(id)
+    local ok, list = pcall(C_QuestLog.GetQuestObjectives, id)
+    if not (ok and type(list) == "table") then return nil end
+    local out = {}
+    for _, o in ipairs(list) do
+        local text = o.text
+        if (not text or text == "") and o.type == "progressbar" and GetQuestProgressBarPercent then
+            local pct = GetQuestProgressBarPercent(id)
+            text = pct and ("%d%%"):format(pct) or nil
+        end
+        if text and text ~= "" then
+            out[#out + 1] = { text = text, finished = o.finished and true or false }
+        end
+    end
+    return out
+end
+
+ns.TABS = { "ready", "progress", "zone", "all" }
+
+-- Every quest in the log, with location, distance and extras.
+local function CollectQuests()
     if poiDirty then RebuildPOIs() end
 
     local pmap, px, py = PlayerPos()
     local pzone = ZoneOf(pmap)
+    local pzoneName = MapName(pzone)
     local pc, pwx, pwy = WorldPos(pmap, px, py)
 
     local list, header = {}, nil
@@ -192,70 +217,107 @@ local function GetReadyQuests()
                 header = info.title
             elseif not info.isHidden and info.questID and info.questID > 0 then
                 local id = info.questID
-                if IsReady(id) then
-                    local q = { id = id, title = info.title, level = info.level, header = header }
-                    q.map, q.x, q.y = TurnInLocation(id)
-                    q.zone = ZoneOf(q.map)
+                local q = { id = id, title = info.title, level = info.level, header = header }
+                q.ready = IsReady(id) and true or false
+                q.failed = C_QuestLog.IsFailed and C_QuestLog.IsFailed(id) or false
+                q.map, q.x, q.y = QuestLocation(id)
+                q.zone = ZoneOf(q.map)
 
-                    -- Distance: world coordinates to the turn-in, else the client's own estimate.
-                    local qc, qwx, qwy = WorldPos(q.map, q.x, q.y)
-                    if pc and qc and pc == qc then
-                        q.dist = math.sqrt((qwx - pwx) ^ 2 + (qwy - pwy) ^ 2)
-                    elseif C_QuestLog.GetDistanceSqToQuest then
-                        local d = C_QuestLog.GetDistanceSqToQuest(id)
-                        if d and d > 0 then q.dist = math.sqrt(d) end
-                    end
-                    q.wc, q.wx, q.wy = qc, qwx, qwy
-
-                    q.here = (pzone and q.zone == pzone) or false
-                    q.group = q.here and "\0here" or (MapName(q.zone) or header or L.UNKNOWN_ZONE)
-                    q.eta = TravelSeconds(q, pmap, px, py)
-                    q.rewards = ns:GetRewards(id)
-                    q.place, q.placeName = ns:GetPlace(q.map, q.x, q.y)
-                    q.chain = ns:GetChain(id)
-                    q.qtype, q.qtypeName = ns:GetQuestType(id)
-                    list[#list + 1] = q
+                -- Distance: world coordinates to the POI, else the client's own estimate.
+                local qc, qwx, qwy = WorldPos(q.map, q.x, q.y)
+                if pc and qc and pc == qc then
+                    q.dist = math.sqrt((qwx - pwx) ^ 2 + (qwy - pwy) ^ 2)
+                elseif C_QuestLog.GetDistanceSqToQuest then
+                    local d = C_QuestLog.GetDistanceSqToQuest(id)
+                    if d and d > 0 then q.dist = math.sqrt(d) end
                 end
+                q.wc, q.wx, q.wy = qc, qwx, qwy
+
+                local zname = MapName(q.zone)
+                q.here = (pzone and q.zone == pzone) or (not q.zone and pzoneName ~= nil and header == pzoneName) or false
+                q.group = q.here and "\0here" or (zname or header or L.UNKNOWN_ZONE)
+                q.eta = TravelSeconds(q, pmap, px, py)
+                q.rewards = ns:GetRewards(id)
+                q.place, q.placeName = ns:GetPlace(q.map, q.x, q.y)
+                q.chain = ns:GetChain(id)
+                q.qtype, q.qtypeName = ns:GetQuestType(id)
+                if not q.ready then q.objectives = Objectives(id) end
+                list[#list + 1] = q
             end
         end
     end
-
-    -- Group, ordering groups: current map first, then by closest quest, then by name.
-    local groups, byName = {}, {}
-    for _, q in ipairs(list) do
-        local g = byName[q.group]
-        if not g then
-            g = { key = q.group, here = q.here, quests = {} }
-            g.title = q.here and L.ON_THIS_MAP:format(MapName(pzone) or "?") or q.group
-            byName[q.group] = g
-            groups[#groups + 1] = g
-        end
-        g.quests[#g.quests + 1] = q
-        if q.eta and (not g.bestEta or q.eta < g.bestEta) then g.bestEta = q.eta end
-        if q.dist and (not g.bestDist or q.dist < g.bestDist) then g.bestDist = q.dist end
-    end
-
-    local function byDist(a, b)
-        if a.eta and b.eta and a.eta ~= b.eta then return a.eta < b.eta end
-        if a.dist and b.dist and a.dist ~= b.dist then return a.dist < b.dist end
-        local ra, rb = a.eta or a.dist, b.eta or b.dist
-        if (ra ~= nil) ~= (rb ~= nil) then return ra ~= nil end
-        return a.title < b.title
-    end
-    for _, g in ipairs(groups) do table.sort(g.quests, byDist) end
-    -- Easiest turn-in first: travel time (Shortest Path) when both groups have it,
-    -- else straight-line distance; the current map only wins ties/unknowns.
-    table.sort(groups, function(a, b)
-        if a.bestEta and b.bestEta and a.bestEta ~= b.bestEta then return a.bestEta < b.bestEta end
-        if a.bestDist and b.bestDist and a.bestDist ~= b.bestDist then return a.bestDist < b.bestDist end
-        if a.here ~= b.here then return a.here end
-        local ra, rb = a.bestEta or a.bestDist, b.bestEta or b.bestDist
-        if (ra ~= nil) ~= (rb ~= nil) then return ra ~= nil end
-        return a.title < b.title
-    end)
-
-    return groups, #list, pmap, px, py
+    return list, pmap, px, py, pzone
 end
+
+local function byDist(a, b)
+    if a.eta and b.eta and a.eta ~= b.eta then return a.eta < b.eta end
+    if a.dist and b.dist and a.dist ~= b.dist then return a.dist < b.dist end
+    local ra, rb = a.eta or a.dist, b.eta or b.dist
+    if (ra ~= nil) ~= (rb ~= nil) then return ra ~= nil end
+    return a.title < b.title
+end
+
+local function InTab(q, tab)
+    if tab == "ready" then return q.ready end
+    if tab == "progress" then return not q.ready end
+    if tab == "zone" then return q.here end
+    return true
+end
+
+-- Groups the quests of one tab. Returns groups, count, pmap, px, py, counts (per tab).
+local function GetQuests(tab)
+    local list, pmap, px, py, pzone = CollectQuests()
+    local counts = { ready = 0, progress = 0, zone = 0, all = 0 }
+    for _, q in ipairs(list) do
+        for _, t in ipairs(ns.TABS) do
+            if InTab(q, t) then counts[t] = counts[t] + 1 end
+        end
+    end
+
+    local groups, byName, n = {}, {}, 0
+    for _, q in ipairs(list) do
+        if InTab(q, tab) then
+            n = n + 1
+            local key, title, here
+            if tab == "zone" then
+                key = q.ready and "\1ready" or "\2progress"
+                title = q.ready and L.GROUP_READY or L.GROUP_PROGRESS
+                here = q.ready
+            else
+                key, here = q.group, q.here
+                title = q.here and L.ON_THIS_MAP:format(MapName(pzone) or "?") or q.group
+            end
+            local g = byName[key]
+            if not g then
+                g = { key = key, here = here, title = title, quests = {} }
+                byName[key] = g
+                groups[#groups + 1] = g
+            end
+            g.quests[#g.quests + 1] = q
+            if q.eta and (not g.bestEta or q.eta < g.bestEta) then g.bestEta = q.eta end
+            if q.dist and (not g.bestDist or q.dist < g.bestDist) then g.bestDist = q.dist end
+        end
+    end
+
+    for _, g in ipairs(groups) do table.sort(g.quests, byDist) end
+    if tab == "zone" then
+        table.sort(groups, function(a, b) return a.key < b.key end)
+    else
+        -- Nearest first: travel time (Shortest Path) when both groups have it,
+        -- else straight-line distance; the current map only wins ties/unknowns.
+        table.sort(groups, function(a, b)
+            if a.bestEta and b.bestEta and a.bestEta ~= b.bestEta then return a.bestEta < b.bestEta end
+            if a.bestDist and b.bestDist and a.bestDist ~= b.bestDist then return a.bestDist < b.bestDist end
+            if a.here ~= b.here then return a.here end
+            local ra, rb = a.bestEta or a.bestDist, b.bestEta or b.bestDist
+            if (ra ~= nil) ~= (rb ~= nil) then return ra ~= nil end
+            return a.title < b.title
+        end)
+    end
+    return groups, n, pmap, px, py, counts, list
+end
+
+local function GetReadyQuests() return GetQuests("ready") end
 
 ---------------------------------------------------------------------------
 -- Navigation
@@ -271,16 +333,17 @@ end
 
 local function NavigateTo(q)
     if not q.map then
-        print(PREFIX .. L.NO_COORDS)
+        print(PREFIX .. (q.ready and L.NO_COORDS or L.NO_COORDS_OBJ))
         OpenOnMap(q)
         return
     end
+    local title = q.ready and L.STOP_ONE:format(q.title) or L.STOP_OBJ:format(q.title)
     local api = SPF()
     if api and api.NavigateRoute then
         local ok, started = pcall(api.NavigateRoute, OWNER, { {
-            map = q.map, x = q.x, y = q.y,
-            title = L.STOP_ONE:format(q.title),
-            kind = "turnin", handins = { q.id },
+            map = q.map, x = q.x, y = q.y, title = title,
+            kind = q.ready and "turnin" or "objective",
+            handins = q.ready and { q.id } or nil,
         } })
         if ok and started then return end
         print(PREFIX .. L.ROUTE_FAILED)
@@ -288,10 +351,67 @@ local function NavigateTo(q)
         TomTom:AddWaypoint(q.map, q.x, q.y, { title = q.title, questID = q.id, from = OWNER, crazy = true })
         return
     end
-    -- Blizzard fallback: super-track the quest (arrow points to its turn-in).
+    -- Blizzard fallback: super-track the quest (arrow points to its POI).
     if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
         C_SuperTrack.SetSuperTrackedQuestID(q.id)
     end
+end
+
+local function IsWatched(id)
+    if C_QuestLog.GetQuestWatchType then return C_QuestLog.GetQuestWatchType(id) ~= nil end
+    if IsQuestWatched and GetQuestLogIndexByID then
+        local i = GetQuestLogIndexByID(id)
+        return i and i > 0 and IsQuestWatched(i) or false
+    end
+    return false
+end
+
+local function SetWatched(id, on)
+    if on then
+        if C_QuestLog.AddQuestWatch then pcall(C_QuestLog.AddQuestWatch, id) end
+    else
+        if C_QuestLog.RemoveQuestWatch then pcall(C_QuestLog.RemoveQuestWatch, id) end
+    end
+end
+
+local function ShareQuest(q)
+    if C_QuestLog.SetSelectedQuest then C_QuestLog.SetSelectedQuest(q.id) end
+    if QuestLogPushQuest then pcall(QuestLogPushQuest) end
+end
+
+local function AbandonQuest(q)
+    if not (C_QuestLog.SetSelectedQuest and C_QuestLog.SetAbandonQuest and StaticPopup_Show) then
+        OpenOnMap(q)
+        return
+    end
+    C_QuestLog.SetSelectedQuest(q.id)
+    C_QuestLog.SetAbandonQuest()
+    StaticPopup_Show("ABANDON_QUEST", q.title)
+end
+
+local function QuestMenu(owner, q)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then
+        OpenOnMap(q)
+        return
+    end
+    MenuUtil.CreateContextMenu(owner, function(_, root)
+        root:CreateTitle(q.title)
+        root:CreateButton(L.MENU_ROUTE, function() NavigateTo(q) end)
+        root:CreateButton(L.MENU_MAP, function() OpenOnMap(q) end)
+        if IsWatched(q.id) then
+            root:CreateButton(L.MENU_UNTRACK, function() SetWatched(q.id, false) end)
+        else
+            root:CreateButton(L.MENU_TRACK, function() SetWatched(q.id, true) end)
+        end
+        local pushable = C_QuestLog.IsPushableQuest and C_QuestLog.IsPushableQuest(q.id)
+        if pushable and IsInGroup and IsInGroup() then
+            root:CreateButton(L.MENU_SHARE, function() ShareQuest(q) end)
+        end
+        local canAbandon = not C_QuestLog.CanAbandonQuest or C_QuestLog.CanAbandonQuest(q.id)
+        if canAbandon then
+            root:CreateButton("|cffff4040" .. L.MENU_ABANDON .. "|r", function() AbandonQuest(q) end)
+        end
+    end)
 end
 
 -- One journey through every known turn-in, nearest-neighbour order,
@@ -418,12 +538,76 @@ routeBtn:SetScript("OnEnter", function(self)
 end)
 routeBtn:SetScript("OnLeave", GameTooltip_Hide)
 
+-- Tab bar ------------------------------------------------------------------
+local Refresh
+local tabs = {}
+local TAB_LABEL = { ready = "TAB_READY", progress = "TAB_PROGRESS", zone = "TAB_ZONE", all = "TAB_ALL" }
+local TAB_TIP = { ready = "TAB_READY_TIP", progress = "TAB_PROGRESS_TIP", zone = "TAB_ZONE_TIP", all = "TAB_ALL_TIP" }
+local tabBar = CreateFrame("Frame", nil, frame)
+tabBar:SetPoint("TOPLEFT", 6, -25)
+tabBar:SetPoint("TOPRIGHT", -6, -25)
+tabBar:SetHeight(18)
+
+local function SelectTab(key)
+    db.tab = key
+    Refresh()
+end
+
+for i, key in ipairs({ "ready", "progress", "zone", "all" }) do
+    local b = CreateFrame("Button", nil, tabBar)
+    b.key = key
+    b:SetHeight(18)
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetAllPoints()
+    b.line = b:CreateTexture(nil, "ARTWORK")
+    b.line:SetPoint("BOTTOMLEFT")
+    b.line:SetPoint("BOTTOMRIGHT")
+    b.line:SetHeight(2)
+    b.line:SetColorTexture(1, 0.82, 0, 1)
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(1, 1, 1, 0.08)
+    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    b.text:SetPoint("LEFT", 2, 0)
+    b.text:SetPoint("RIGHT", -2, 0)
+    b.text:SetWordWrap(false)
+    b:SetScript("OnClick", function(self) SelectTab(self.key) end)
+    b:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(L[TAB_LABEL[self.key]])
+        GameTooltip:AddLine(L[TAB_TIP[self.key]], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", GameTooltip_Hide)
+    tabs[i] = b
+end
+tabBar:SetScript("OnSizeChanged", function(self, w)
+    local each = (w - 3 * 2) / 4
+    for i, b in ipairs(tabs) do
+        b:SetWidth(each)
+        b:ClearAllPoints()
+        b:SetPoint("LEFT", (i - 1) * (each + 2), 0)
+    end
+end)
+
+local function UpdateTabs(counts)
+    for _, b in ipairs(tabs) do
+        local n = counts[b.key] or 0
+        local active = db.tab == b.key
+        b.text:SetText(L[TAB_LABEL[b.key]] .. (n > 0 and (" |cffffffff%d|r"):format(n) or ""))
+        b.text:SetFontObject(active and GameFontHighlightSmall or GameFontNormalSmall)
+        b.bg:SetColorTexture(1, 1, 1, active and 0.12 or 0.04)
+        b.line:SetShown(active)
+        if not active then b.text:SetTextColor(0.75, 0.75, 0.75) end
+    end
+end
+
 local empty = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-empty:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -6)
+empty:SetPoint("TOPLEFT", 10, -(TOP + 4))
 
 -- Scrollable list area (mouse wheel) -------------------------------------
 local scroll = CreateFrame("ScrollFrame", nil, frame)
-scroll:SetPoint("TOPLEFT", 6, -26)
+scroll:SetPoint("TOPLEFT", 6, -TOP)
 scroll:SetPoint("BOTTOMRIGHT", -6, 8)
 scroll:EnableMouseWheel(true)
 local content = CreateFrame("Frame", nil, scroll)
@@ -650,7 +834,12 @@ local function Row_OnEnter(self)
         GameTooltip:SetText(q.title)
     end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine(L.TURNIN_AT:format(MapName(q.zone) or q.header or L.UNKNOWN_ZONE), 1, 1, 1)
+    local where = MapName(q.zone) or q.header or L.UNKNOWN_ZONE
+    if q.ready then
+        GameTooltip:AddLine(L.TURNIN_AT:format(where), 1, 1, 1)
+    else
+        GameTooltip:AddLine(L.OBJECTIVE_AT:format(where), 1, 1, 1)
+    end
     if q.map and q.x then
         GameTooltip:AddLine(("%.1f, %.1f"):format(q.x * 100, q.y * 100), 0.7, 0.7, 0.7)
     end
@@ -658,7 +847,7 @@ local function Row_OnEnter(self)
     if wp and wp ~= "" then GameTooltip:AddLine(wp, 1, 0.82, 0, true) end
     if q.dist then GameTooltip:AddLine(L.DISTANCE:format(math.floor(q.dist + 0.5)), 0.8, 0.8, 0.8) end
     if q.eta then GameTooltip:AddLine(L.TRAVEL:format(FormatTime(q.eta)), 0.8, 0.8, 0.8) end
-    if q.place then
+    if q.place and q.ready then
         local txt = q.place == "dungeon" and L.PLACE_DUNGEON or L.PLACE_CAVE
         GameTooltip:AddLine(txt:format(q.placeName or "?"), 1, 0.55, 0.25)
     end
@@ -688,6 +877,11 @@ local function Row_OnEnter(self)
 end
 
 local function Row_OnClick(self, button)
+    if self.groupKey then
+        db.collapsed[self.groupKey] = not db.collapsed[self.groupKey] or nil
+        Refresh()
+        return
+    end
     local q = self.quest
     if not q then return end
     if IsShiftKeyDown() then
@@ -695,7 +889,7 @@ local function Row_OnClick(self, button)
         local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
         if link and insert then insert(link) end
     elseif button == "RightButton" then
-        OpenOnMap(q)
+        QuestMenu(self, q)
     else
         NavigateTo(q)
     end
@@ -736,9 +930,10 @@ local function GetRow(i)
     return row
 end
 
-local function SetupHeaderRow(row, g, y)
+local function SetupHeaderRow(row, g, y, collapsed)
     row.quest = nil
-    row:EnableMouse(false)
+    row.groupKey = db.tab .. ":" .. g.key
+    row:EnableMouse(true)
     row:SetHeight(HEADER_H)
     row:ClearAllPoints()
     row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
@@ -750,23 +945,54 @@ local function SetupHeaderRow(row, g, y)
     row.text:SetPoint("LEFT", 2, -2)
     row.text:SetPoint("RIGHT", -60, -2)
     row.text:SetFontObject(GameFontNormalSmall)
+    row.text:SetTextColor(1, 1, 1)
+    local sign = collapsed and "|cff999999[+]|r " or "|cff999999[-]|r "
     if g.here then
-        row.text:SetText("|cff66ff66" .. g.title .. "|r")
+        row.text:SetText(sign .. "|cff66ff66" .. g.title .. "|r")
     else
-        row.text:SetText("|cffffd100" .. g.title .. "|r")
+        row.text:SetText(sign .. "|cffffd100" .. g.title .. "|r")
     end
     row.dist:SetText(("(%d)"):format(#g.quests))
     row:Show()
 end
 
+local function SetupObjectiveRow(row, o, y)
+    row.quest, row.groupKey = nil, nil
+    row:EnableMouse(false)
+    row:SetHeight(OBJ_H)
+    row:ClearAllPoints()
+    row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
+    row:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, y)
+    row.icon:Hide()
+    row.tags:SetText("")
+    row.dist:SetText("")
+    SetItemButtons(row, nil)
+    row.text:ClearAllPoints()
+    row.text:SetPoint("LEFT", 30, 0)
+    row.text:SetPoint("RIGHT", -4, 0)
+    row.text:SetFontObject(GameFontHighlightSmall)
+    if o.finished then
+        row.text:SetText("|cff00c000- " .. o.text .. "|r")
+    else
+        row.text:SetText("|cffc8c8c8- " .. o.text .. "|r")
+    end
+    row:Show()
+end
+
 local function SetupQuestRow(row, q, y)
-    row.quest = q
+    row.quest, row.groupKey = q, nil
     row:EnableMouse(true)
     row:SetHeight(ROW_H)
     row:ClearAllPoints()
     row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
     row:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, y)
-    row.icon:SetTexture("Interface\\GossipFrame\\ActiveQuestIcon")
+    if q.ready then
+        row.icon:SetTexture("Interface\\GossipFrame\\ActiveQuestIcon")
+        row.icon:SetDesaturated(false)
+    else
+        row.icon:SetTexture("Interface\\GossipFrame\\IncompleteQuestIcon")
+        row.icon:SetDesaturated(false)
+    end
     row.icon:ClearAllPoints()
     row.icon:SetPoint("LEFT", 10, 0)
     row.icon:Show()
@@ -775,7 +1001,9 @@ local function SetupQuestRow(row, q, y)
     row.text:SetPoint("RIGHT", row.tags, "LEFT", -4, 0) -- re-anchored below once icons are placed
     row.text:SetFontObject(GameFontHighlightSmall)
     local lvl = q.level and q.level > 0 and ("[%d] "):format(q.level) or ""
-    row.text:SetText(lvl .. q.title)
+    local title = q.title
+    if q.failed then title = "|cffff4040" .. title .. "|r" end
+    row.text:SetText(lvl .. title)
     local right = FormatDist(q.dist)
     if q.eta then
         right = (right ~= "" and (right .. " · ") or "") .. FormatTime(q.eta)
@@ -792,48 +1020,134 @@ end
 ---------------------------------------------------------------------------
 -- Refresh
 ---------------------------------------------------------------------------
-local function Refresh()
-    if not db then return end
-    local groups, total = GetReadyQuests()
+-- Other quest trackers (Questie, Blizzard) hidden while this window is shown.
+local hiddenByUs = {}
+local function OtherTrackers()
+    local list = {}
+    if db.hideQuestie and _G.Questie_BaseFrame then list[#list + 1] = _G.Questie_BaseFrame end
+    local blizz = _G.ObjectiveTrackerFrame or _G.QuestWatchFrame
+    if db.hideBlizzard and blizz then list[#list + 1] = blizz end
+    return list
+end
 
-    local totalXP = 0
-    for _, g in ipairs(groups) do
-        for _, q in ipairs(g.quests) do totalXP = totalXP + (q.rewards and q.rewards.xp or 0) end
+local hooked = {}
+local function ShouldHide(f)
+    if not (db and frame:IsShown()) then return false end
+    if f == _G.Questie_BaseFrame then return db.hideQuestie end
+    return db.hideBlizzard
+end
+
+local function ApplyTrackerHiding()
+    if not db then return end
+    if InCombatLockdown() then return end -- retried on PLAYER_REGEN_ENABLED
+    for _, name in ipairs({ "Questie_BaseFrame", "ObjectiveTrackerFrame", "QuestWatchFrame" }) do
+        local f = _G[name]
+        if f then
+            if not hooked[f] then
+                hooked[f] = true
+                f:HookScript("OnShow", function(self)
+                    if ShouldHide(self) and not InCombatLockdown() then
+                        hiddenByUs[self] = true
+                        self:Hide()
+                    end
+                end)
+            end
+            if ShouldHide(f) then
+                if f:IsShown() then hiddenByUs[f] = true; f:Hide() end
+            elseif hiddenByUs[f] then
+                hiddenByUs[f] = nil
+                f:Show()
+            end
+        end
     end
-    local lv = LevelsUp(ns:XPState(), totalXP)
-    header:SetText(L.HEADER:format(total) .. (lv > 0 and ("  |cff00ff00" .. L.HEADER_LEVELS:format(lv) .. "|r") or ""))
-    empty:SetText(L.EMPTY)
+end
+ns.ApplyTrackerHiding = function() ApplyTrackerHiding() end
+
+local prevReady -- questID -> ready, from the previous refresh
+
+local function QuestsForTab()
+    local groups, total, _, _, _, counts, list = GetQuests(db.tab)
+    -- A quest that was already in the log just became ready: jump to the Ready tab.
+    local now, newlyReady = {}, false
+    for _, q in ipairs(list) do
+        now[q.id] = q.ready
+        if q.ready and prevReady and prevReady[q.id] == false then newlyReady = true end
+    end
+    prevReady = now
+    if newlyReady and db.autoSwitch and db.tab ~= "ready" then
+        db.tab = "ready"
+        groups, total, _, _, _, counts = GetQuests("ready")
+    end
+    return groups, total, counts
+end
+
+function Refresh()
+    if not db then return end
+    if not tContains(ns.TABS, db.tab) then db.tab = "ready" end
+    local groups, total, counts = QuestsForTab()
+
+    local text
+    if db.tab == "ready" then
+        local totalXP = 0
+        for _, g in ipairs(groups) do
+            for _, q in ipairs(g.quests) do totalXP = totalXP + (q.rewards and q.rewards.xp or 0) end
+        end
+        local lv = LevelsUp(ns:XPState(), totalXP)
+        text = L.HEADER:format(total) .. (lv > 0 and ("  |cff00ff00" .. L.HEADER_LEVELS:format(lv) .. "|r") or "")
+    elseif db.tab == "progress" then
+        text = L.HEADER_PROGRESS:format(total)
+    elseif db.tab == "zone" then
+        text = L.HEADER_ZONE:format(MapName(ZoneOf(C_Map.GetBestMapForUnit("player"))) or "?", total)
+    else
+        local max = C_QuestLog.GetMaxNumQuestsCanAccept and C_QuestLog.GetMaxNumQuestsCanAccept()
+        text = max and L.HEADER_ALL_MAX:format(total, max) or L.HEADER_ALL:format(total)
+    end
+    header:SetText(text)
+    UpdateTabs(counts)
+    empty:SetText(L["EMPTY_" .. db.tab:upper()])
     empty:SetShown(total == 0)
     routeBtn:SetText(L.ROUTE_BTN)
-    routeBtn:SetShown(total > 0 and SPF() ~= nil)
+    routeBtn:SetShown(db.tab == "ready" and total > 0 and SPF() ~= nil)
 
     local i, y = 0, 0
     for _, g in ipairs(groups) do
+        local key = db.tab .. ":" .. g.key
+        local collapsed = db.collapsed[key] and true or false
         i = i + 1
-        SetupHeaderRow(GetRow(i), g, y)
+        SetupHeaderRow(GetRow(i), g, y, collapsed)
         y = y - HEADER_H
-        for _, q in ipairs(g.quests) do
-            i = i + 1
-            SetupQuestRow(GetRow(i), q, y)
-            y = y - ROW_H
+        if not collapsed then
+            for _, q in ipairs(g.quests) do
+                i = i + 1
+                SetupQuestRow(GetRow(i), q, y)
+                y = y - ROW_H
+                if db.showObjectives and q.objectives then
+                    for _, o in ipairs(q.objectives) do
+                        i = i + 1
+                        SetupObjectiveRow(GetRow(i), o, y)
+                        y = y - OBJ_H
+                    end
+                end
+            end
         end
     end
     for j = i + 1, #rows do
         rows[j]:Hide()
-        rows[j].quest = nil
+        rows[j].quest, rows[j].groupKey = nil, nil
     end
 
     content:SetHeight(math.max(-y, 1))
     grip:SetShown(not db.locked)
     if not sizing then
         frame:SetWidth(db.width)
-        local wanted = total == 0 and (26 + ROW_H + 8) or (26 - y + 8)
+        local wanted = total == 0 and (TOP + ROW_H + 8) or (TOP - y + 8)
         frame:SetHeight(math.max(MIN_H, math.min(wanted, db.maxHeight)))
     end
     ClampScroll()
 
-    local visible = db.shown and not (db.autoHide and total == 0)
+    local visible = db.shown and not (db.autoHide and counts.all == 0)
     frame:SetShown(visible)
+    ApplyTrackerHiding()
 end
 
 ns.Refresh = function() Refresh() end
@@ -878,18 +1192,24 @@ for _, e in ipairs({
     "ADDON_LOADED", "PLAYER_ENTERING_WORLD", "QUEST_LOG_UPDATE",
     "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_TURNED_IN", "QUEST_POI_UPDATE",
     "QUEST_WATCH_UPDATE", "UNIT_QUEST_LOG_CHANGED", "ZONE_CHANGED_NEW_AREA",
-    "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP",
+    "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "PLAYER_REGEN_ENABLED",
 }) do
     events:RegisterEvent(e)
 end
 
 events:SetScript("OnEvent", function(_, event, arg1)
+    if event == "PLAYER_REGEN_ENABLED" then ApplyTrackerHiding(); return end
     if event == "ADDON_LOADED" then
-        if arg1 ~= ADDON then return end
+        if arg1 ~= ADDON then
+            if db and (arg1 == "Questie" or arg1 == "Blizzard_ObjectiveTracker") then
+                C_Timer.After(1, ApplyTrackerHiding)
+            end
+            return
+        end
         ReadyQuestsDB = ReadyQuestsDB or {}
         db = ReadyQuestsDB
         for k, v in pairs(defaults) do
-            if db[k] == nil then db[k] = v end
+            if db[k] == nil then db[k] = type(v) == "table" and {} or v end
         end
         ns:ApplyLocale(db.locale)
         if ns.BuildOptions and not ns.optionsCategory then ns:BuildOptions(db) end
@@ -911,8 +1231,8 @@ end)
 local function Toggle()
     db.shown = not db.shown
     if db.shown and db.autoHide then
-        local _, total = GetReadyQuests()
-        if total == 0 then print(PREFIX .. L.NONE_NOW) end
+        local counts = select(6, GetQuests("all"))
+        if counts.all == 0 then print(PREFIX .. L.NONE_NOW) end
     end
     Refresh()
 end
@@ -937,6 +1257,18 @@ SlashCmdList.READYQUESTS = function(msg)
         frame:ClearAllPoints()
         frame:SetPoint("RIGHT", UIParent, "RIGHT", -260, 120)
         print(PREFIX .. L.RESET)
+    elseif msg:match("^tab") then
+        local arg = strtrim(msg:sub(4))
+        local alias = { ready = "ready", prontas = "ready", progress = "progress", active = "progress",
+            andamento = "progress", zone = "zone", zona = "zone", all = "all", todas = "all" }
+        local key = alias[arg]
+        if key then
+            db.tab = key
+            db.shown = true
+            Refresh()
+        else
+            print(PREFIX .. L.HELP_TAB)
+        end
     elseif msg == "route" then
         RouteAll(false)
     elseif msg == "route here" then
@@ -1008,6 +1340,7 @@ SlashCmdList.READYQUESTS = function(msg)
         print(PREFIX .. L.HELP1)
         print(PREFIX .. L.HELP2)
         print(PREFIX .. L.HELP4)
+        print(PREFIX .. L.HELP_TAB)
         print(PREFIX .. L.HELP_CONFIG)
         print(PREFIX .. L.HELP3:format(table.concat(ns:AvailableLocales(), ", ")))
     else

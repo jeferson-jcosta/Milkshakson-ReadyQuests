@@ -1,5 +1,15 @@
 # Changelog - Milkshakson - Ready Quests
 
+## 2.7.0
+- Tabs: **Ready**, **Active** (in progress, with objectives), **Zone** (quests of your current zone) and **All** (whole log by zone), with a quest count on each tab.
+- Group headers collapse/expand with a click (remembered per tab).
+- Switches to the Ready tab by itself when a quest gets completed (optional).
+- Click an in-progress quest to route to its objective area (Shortest Path Forever / TomTom).
+- Right-click menu on quests: go there, open on map, track/untrack, share with party, abandon.
+- Options to hide Questie's tracker and the game's quest tracker while the window is shown.
+- "Hide when empty" now means an empty quest log.
+- `/rq tab ready|active|zone|all`.
+
 ## 2.6.2
 - `/mrq debug` shows the saved options.
 

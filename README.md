@@ -1,6 +1,6 @@
 # Ready Quests (WoW: Forever)
 
-A small window listing the quests in your log that are complete and only need to be turned in. Updates automatically.
+A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs for quests ready to turn in, quests in progress (with objectives), your current zone and the whole log. Updates automatically.
 
 ## Install
 1. Close the game.
@@ -13,10 +13,11 @@ A small window listing the quests in your log that are complete and only need to
 | `/rq` (or `/mrq`, `/readyquests`, `/entregar`) | Show/hide the window. Every `/rq` command also works as `/mrq` |
 | `/rq list` | List in chat |
 | `/rq lock` | Lock/unlock position |
-| `/rq auto` | Toggle "hide when empty" (default: on) |
+| `/rq auto` | Toggle "hide when the quest log is empty" (default: on) |
 | `/rq reset` | Reset window position and size |
 | `/rq lang <code\|auto>` | Set language (e.g. `/rq lang ptbr`, `/rq lang enus`, `/rq lang auto`) |
 
+| `/rq tab <ready\|active\|zone\|all>` | Switch tab (also `prontas`, `andamento`, `zona`, `todas`) |
 | `/rq route` | Plan one journey through every turn-in (Shortest Path Forever) |
 | `/rq route here` | Same, only turn-ins on the current map |
 
@@ -26,6 +27,14 @@ A small window listing the quests in your log that are complete and only need to
 - **Shift-click**: insert the quest link in chat.
 - **Route** button (left-click: all quests, right-click: this map only): one journey with nearest-first stops. Quests turned in at the same spot become one stop.
 - Drag to move. Drag the bottom-right corner to resize: the width is kept, and the height becomes the maximum. The window shrinks to fit the list, and the mouse wheel scrolls when the list is longer. `/rq lock` hides the grip.
+
+## Tabs
+- **Ready**: quests ready to turn in, easiest turn-in first (distance, travel time, rewards).
+- **Active**: quests in progress with their objectives (`Wolves slain: 4/8`), nearest first.
+- **Zone**: only the quests of the zone you are in, ready ones first.
+- **All**: your whole log, grouped by zone.
+
+Click a group header to collapse it. Right-click a quest for a menu (go there, map, track, share, abandon). The window can replace Questie's tracker: see the Tracker options.
 
 ## Options
 Options > AddOns > **Milkshakson > Ready Quests**, or `/mrq config` (also `/rq config`), or right-click the addon button next to the minimap. From there you can:
