@@ -310,12 +310,18 @@ local function CollectQuests()
                 q.chain = ns:GetChain(id, q.map or pmap)
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
                 q.side, q.sideText = ns:GetTurnInSide(q)
+                -- Dungeon/raid quest still in progress (quest tag from the game):
+                -- its objectives are in the dungeon, which is the quest log
+                -- header the game files it under (Uldaman, Scarlet Monastery).
+                if not q.ready and (q.qtype == "dungeon" or q.qtype == "raid") and header and not q.here then
+                    q.group = header
+                end
                 if InCurrentInstance(inst, q, zname) then
                     q.dist, q.here, q.group, q.inInstance = 0, true, "\0here", true
                 elseif inst and q.here then
                     -- inside a dungeon, only its own quests are "here"
                     q.here = false
-                    q.group = zname or header or L.UNKNOWN_ZONE
+                    q.group = (not q.ready and (q.qtype == "dungeon" or q.qtype == "raid") and header) or zname or header or L.UNKNOWN_ZONE
                 end
                 if not q.ready then q.objectives = Objectives(id) end
                 list[#list + 1] = q

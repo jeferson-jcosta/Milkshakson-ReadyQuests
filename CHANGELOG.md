@@ -1,6 +1,7 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
+- Dungeon/raid quests in progress (game quest tag) are grouped under the dungeon the game files them under in the quest log (Uldaman, Scarlet Monastery), instead of the zone around the entrance (e.g. Loch Modan, Tirisfal Glades).
 - Tooltip: the money reward is labelled "Money" / "Dinheiro" instead of "Gold" / "Ouro" (it can be silver or copper).
 
 ## 2.8.0
