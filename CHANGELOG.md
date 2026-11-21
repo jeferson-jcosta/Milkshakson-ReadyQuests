@@ -1,5 +1,9 @@
 # Changelog - Milkshakson - Ready Quests
 
+## 2.7.2
+- Fix: quests whose turn-in is in a neighbouring zone were grouped under the wrong zone (e.g. Theramore quests under The Barrens). The POI now goes to the zone it actually sits in.
+- `/rq debug` shows which map listed each quest.
+
 ## 2.7.1
 - Dungeon quests show whether the turn-in is **Inside** or **Outside** the dungeon (tag and tooltip). Uses Forever Dungeon Journal's quest data when installed (it knows NPCs the map places at the entrance), otherwise the map at the turn-in spot.
 

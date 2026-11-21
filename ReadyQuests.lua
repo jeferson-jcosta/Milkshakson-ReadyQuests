@@ -47,6 +47,37 @@ local function WorldPos(mapID, x, y)
     if ok and continent and pos then return continent, pos.x, pos.y end
 end
 
+-- The zone a POI really sits in. A zone map can also list a neighbouring
+-- zone's POI (The Barrens lists Theramore's turn-ins, in Dustwallow Marsh), so
+-- ask the continent map which zone is at that spot and move the POI there.
+local function OwnerZone(mapID, x, y)
+    local info = C_Map.GetMapInfo(mapID)
+    if not (info and info.mapType == ZONE and C_Map.GetMapInfoAtPosition and C_Map.GetMapPosFromWorldPos) then
+        return mapID, x, y
+    end
+    local cont = info.parentMapID
+    local cinfo = cont and C_Map.GetMapInfo(cont)
+    while cinfo and cinfo.mapType and cinfo.mapType > CONTINENT and cinfo.parentMapID and cinfo.parentMapID > 0 do
+        cont = cinfo.parentMapID
+        cinfo = C_Map.GetMapInfo(cont)
+    end
+    if not (cinfo and cinfo.mapType == CONTINENT) then return mapID, x, y end
+    local ok, instance, world = pcall(C_Map.GetWorldPosFromMapPos, mapID, CreateVector2D(x, y))
+    if not (ok and instance and world) then return mapID, x, y end
+    local ok2, _, cpos = pcall(C_Map.GetMapPosFromWorldPos, instance, world, cont)
+    if not (ok2 and cpos) then return mapID, x, y end
+    local ok3, at = pcall(C_Map.GetMapInfoAtPosition, cont, cpos.x, cpos.y)
+    if not (ok3 and at and at.mapID) then return mapID, x, y end
+    local owner = ZoneOf(at.mapID)
+    local oinfo = owner and C_Map.GetMapInfo(owner)
+    if not owner or owner == mapID or not (oinfo and oinfo.mapType == ZONE) then return mapID, x, y end
+    local ok4, _, opos = pcall(C_Map.GetMapPosFromWorldPos, instance, world, owner)
+    if not (ok4 and opos) then return mapID, x, y end
+    local ox, oy = opos.x, opos.y
+    if not (ox and oy and ox >= 0 and ox <= 1 and oy >= 0 and oy <= 1) then return mapID, x, y end
+    return owner, ox, oy
+end
+
 local function PlayerPos()
     local map = C_Map.GetBestMapForUnit("player")
     if not map then return nil end
@@ -163,7 +194,8 @@ local function RebuildPOIs()
             for _, poi in ipairs(list) do
                 local id = poi.questID
                 if id and wanted[id] and not poiCache[id] and poi.x and poi.y then
-                    poiCache[id] = { map = m, x = poi.x, y = poi.y }
+                    local om, ox, oy = OwnerZone(m, poi.x, poi.y)
+                    poiCache[id] = { map = om, x = ox, y = oy, listedOn = m }
                     missing = missing - 1
                 end
             end
@@ -1529,8 +1561,8 @@ SlashCmdList.READYQUESTS = function(msg)
         local groups = GetQuests("all")
         for _, g in ipairs(groups) do
             for _, q in ipairs(g.quests) do
-                print(("  [%s] #%d %s | header=%s | map=%s %s EJ=%s | place=%s | here=%s inst=%s | dist=%s"):format(
-                    g.title, q.id, q.title, tostring(q.header), tostring(q.map), tostring(MapName(q.map)),
+                print(("  [%s] #%d %s | header=%s | map=%s %s (listed on %s) EJ=%s | place=%s | here=%s inst=%s | dist=%s"):format(
+                    g.title, q.id, q.title, tostring(q.header), tostring(q.map), tostring(MapName(q.map)), tostring(poiCache[q.id] and poiCache[q.id].listedOn),
                     tostring(EJInstance(q.map)), tostring(q.placeName), tostring(q.here), tostring(q.inInstance),
                     q.dist and ("%.0f"):format(q.dist) or "nil"))
             end
