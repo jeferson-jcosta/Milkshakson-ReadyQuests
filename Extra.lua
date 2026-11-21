@@ -58,7 +58,8 @@ end
 ---------------------------------------------------------------------------
 -- Quest chains: one quest leads to another. Game API only:
 --  1. the game's quest lines (C_QuestLine), when it has one for the quest;
---  2. links learned while playing: you turn a quest in and the same NPC
+--  2. Forever Dungeon Journal's chain data, when that addon is installed;
+--  3. links learned while playing: you turn a quest in and the same NPC
 --     offers / gives you the next one. Kept in ReadyQuestsDB.chainLinks
 --     (account-wide), so every character benefits.
 ---------------------------------------------------------------------------
@@ -75,6 +76,61 @@ local function FromQuestLine(questID, mapID)
             return { name = info.questLineName, pos = i, total = #quests, nextID = quests[i + 1], source = "questline" }
         end
     end
+end
+
+-- Forever Dungeon Journal (optional): its curated "required to unlock"
+-- chains, FDJ.QUEST_PREREQ_CHAINS[finalQuest] = { step, step, ... }.
+-- Steps of one choice (step.choice) count as one step, as FDJ shows them.
+local fdjIndex -- questID -> { chain, index }
+local function StepNumber(chain, index)
+    local n, last = 0, nil
+    for i = 1, math.min(index, #chain) do
+        local c = type(chain[i]) == "table" and chain[i].choice or nil
+        if c == nil or c ~= last then n = n + 1 end
+        last = c
+    end
+    return n
+end
+
+local function FDJIndex()
+    if fdjIndex then return fdjIndex end
+    local FDJ = _G.ForeverDungeonJournal_NS
+    local chains = FDJ and FDJ.QUEST_PREREQ_CHAINS
+    if type(chains) ~= "table" then return nil end
+    fdjIndex = {}
+    for finalID, steps in pairs(chains) do
+        if type(steps) == "table" and #steps > 0 then
+            local full = {}
+            for _, st in ipairs(steps) do
+                if type(st) == "table" and st.id then full[#full + 1] = st end
+            end
+            if #full > 0 and full[#full].id ~= finalID then full[#full + 1] = { id = finalID } end
+            for i, st in ipairs(full) do
+                local cur = fdjIndex[st.id]
+                -- a quest in several chains: keep the longest one
+                if not cur or #full > #cur.chain then fdjIndex[st.id] = { chain = full, index = i } end
+            end
+        end
+    end
+    return fdjIndex
+end
+
+local function FromFDJ(questID)
+    local idx = FDJIndex()
+    local e = idx and idx[questID]
+    if not e then return nil end
+    local chain, i = e.chain, e.index
+    local total = StepNumber(chain, #chain)
+    if total < 2 then return nil end
+    local pos = StepNumber(chain, i)
+    -- next step: first quest after this one's choice group
+    local nextStep
+    local myChoice = chain[i].choice
+    for k = i + 1, #chain do
+        if myChoice == nil or chain[k].choice ~= myChoice then nextStep = chain[k]; break end
+    end
+    return { pos = pos, total = total, nextID = nextStep and nextStep.id, nextName = nextStep and nextStep.name,
+        prevID = i > 1 and chain[i - 1].id or nil, source = "fdj" }
 end
 
 -- Learned links: chainLinks[prev] = { [next] = true, ... }
@@ -143,7 +199,7 @@ end
 function ns:GetChain(questID, mapID)
     local c = chainCache[questID]
     if c ~= nil then return c end
-    c = FromQuestLine(questID, mapID) or FromLearned(questID) or false
+    c = FromQuestLine(questID, mapID) or FromFDJ(questID) or FromLearned(questID) or false
     if c and c.nextID and not c.nextName and C_QuestLog.GetTitleForQuestID then
         c.nextName = C_QuestLog.GetTitleForQuestID(c.nextID)
     end

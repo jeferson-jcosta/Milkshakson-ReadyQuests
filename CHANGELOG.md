@@ -1,9 +1,9 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
-- Quest chains no longer use Questie, only the game: its quest lines (now asked with the quest's map) and links learned while you play. When you turn in a quest and the same NPC offers or gives you another right after, they are linked. Links are kept per account, so all your characters see them.
-- The chain tag shows "Chain 3" (step) when the length is not known; "Chain 2/5" for the game's quest lines. Tooltip: "Comes after" / "Next".
-- `/rq debug` shows the chain and its source (questline / learned) for every quest.
+- Quest chains no longer use Questie. Sources: the game's quest lines (now asked with the quest's map), Forever Dungeon Journal's chains when that addon is installed (optional), and links learned while you play (the same NPC offers or gives you a quest right after you turn one in; kept per account).
+- Chain shown with an icon instead of the word: icon + "2/5" when the whole chain is known, icon + "3" (step) for learned chains. Tooltip: step, "Comes after" / "Next".
+- `/rq debug` shows the chain and its source (questline / fdj / learned) for every quest.
 
 ## 2.7.2
 - Fix: quests whose turn-in is in a neighbouring zone were grouped under the wrong zone (e.g. Theramore quests under The Barrens). The POI now goes to the zone it actually sits in.

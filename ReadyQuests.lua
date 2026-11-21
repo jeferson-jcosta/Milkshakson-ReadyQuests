@@ -841,6 +841,7 @@ local rows = {}
 ---------------------------------------------------------------------------
 local ICON_GOLD = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12|t"
 local ICON_UP = "|TInterface\\Buttons\\UI-MicroStream-Green:12:12|t"
+local ICON_CHAIN = "|TInterface\\AddOns\\Milkshakson-ReadyQuests\\Media\\Chain:13:13|t"
 
 local function Icon(tex) return tex and ("|T%s:13:13|t"):format(tex) or "" end
 
@@ -865,8 +866,8 @@ local function RewardTags(q, xpState)
     end
     if db.showChain and q.chain then
         local c = q.chain
-        local text = c.source == "questline" and L.TAG_CHAIN:format(c.pos, c.total) or L.TAG_CHAIN_STEP:format(c.pos)
-        t[#t + 1] = "|cffffcc00" .. text .. "|r"
+        local known = c.source ~= "learned"
+        t[#t + 1] = ICON_CHAIN .. "|cffffcc00" .. (known and ("%d/%d"):format(c.pos, c.total) or tostring(c.pos)) .. "|r"
     end
     local r = q.rewards
     if not r or not db.showRewards then return table.concat(t, " ") end
@@ -1058,7 +1059,7 @@ local function Row_OnEnter(self)
     end
     if q.chain then
         local c = q.chain
-        local pos = c.source == "questline" and L.CHAIN_POS:format(c.pos, c.total) or L.CHAIN_STEP:format(c.pos)
+        local pos = c.source ~= "learned" and L.CHAIN_POS:format(c.pos, c.total) or L.CHAIN_STEP:format(c.pos)
         GameTooltip:AddLine(pos .. (c.name and (" - " .. c.name) or ""), 1, 0.8, 0)
         if c.prevID and C_QuestLog.GetTitleForQuestID then
             local pt = C_QuestLog.GetTitleForQuestID(c.prevID)
@@ -1066,7 +1067,7 @@ local function Row_OnEnter(self)
         end
         if q.chain.nextID then
             GameTooltip:AddLine(L.CHAIN_NEXT:format(q.chain.nextName or ("#" .. q.chain.nextID)), 1, 1, 1, true)
-        elseif q.chain.source == "questline" then
+        elseif q.chain.source ~= "learned" then
             GameTooltip:AddLine(L.CHAIN_LAST, 0.7, 0.7, 0.7)
         end
     end
