@@ -6,12 +6,14 @@ local ADDON, ns = ...
 local L = ns.L
 local PREFIX = "|cff33ff99[ReadyQuests]|r "
 local ROW_H, HEADER_H, OBJ_H, WIDTH = 18, 18, 14, 300
-local TOP = 48 -- header + tab bar
+local TOP_BASE = 48 -- header + tab bar
+local SEARCH_H = 20
+local TOP = TOP_BASE -- + search box when shown (set in Refresh)
 local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showDistance = false,
+    width = WIDTH, maxHeight = 400, fitHeight = true, showSearch = true, showRewards = true, showPlace = true, showChain = true, showDistance = false,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
@@ -353,7 +355,22 @@ local function byDist(a, b)
     return a.title < b.title
 end
 
+-- Search: words typed in the search box, all must appear in the quest's
+-- title, objectives or zone/header (case-insensitive).
+local searchText = ""
+local function Matches(q)
+    if searchText == "" then return true end
+    local hay = { q.title or "", q.header or "", type(q.group) == "string" and q.group or "" }
+    for _, o in ipairs(q.objectives or {}) do hay[#hay + 1] = o.text or "" end
+    hay = table.concat(hay, "\n"):lower()
+    for word in searchText:gmatch("%S+") do
+        if not hay:find(word, 1, true) then return false end
+    end
+    return true
+end
+
 local function InTab(q, tab)
+    if not Matches(q) then return false end
     if tab == "ready" then return q.ready end
     if tab == "progress" then return not q.ready end
     if tab == "zone" then return q.here end
@@ -363,7 +380,7 @@ end
 -- Groups the quests of one tab. Returns groups, count, pmap, px, py, counts (per tab).
 local function GetQuests(tab)
     local list, pmap, px, py, pzone = CollectQuests()
-    local counts = { ready = 0, progress = 0, zone = 0, all = 0 }
+    local counts = { ready = 0, progress = 0, zone = 0, all = 0, raw = #list }
     for _, q in ipairs(list) do
         for _, t in ipairs(ns.TABS) do
             if InTab(q, t) then counts[t] = counts[t] + 1 end
@@ -952,6 +969,27 @@ end
 
 local empty = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 empty:SetPoint("TOPLEFT", 10, -(TOP + 4))
+
+-- Search box (below the tabs) ----------------------------------------------
+local okSearch, search = pcall(CreateFrame, "EditBox", "ReadyQuestsSearchBox", frame, "SearchBoxTemplate")
+if not okSearch or not search then
+    search = CreateFrame("EditBox", "ReadyQuestsSearchBox", frame, "InputBoxTemplate")
+end
+search:SetHeight(18)
+search:SetPoint("TOPLEFT", 12, -(TOP_BASE + 1))
+search:SetPoint("TOPRIGHT", -10, -(TOP_BASE + 1))
+search:SetAutoFocus(false)
+search:SetMaxLetters(60)
+if type(search.Instructions) == "table" and search.Instructions.SetText then search.Instructions:SetText(L.SEARCH_HINT) end
+search:HookScript("OnTextChanged", function(self)
+    local t = strtrim((self:GetText() or ""):lower())
+    if t ~= searchText then
+        searchText = t
+        if ns.Refresh then ns.Refresh() end
+    end
+end)
+search:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
+search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
 
 -- Scrollable list area (mouse wheel) -------------------------------------
 local scroll = CreateFrame("ScrollFrame", nil, frame)
@@ -1611,6 +1649,12 @@ end
 function Refresh()
     if not db then return end
     if not tContains(ns.TABS, db.tab) then db.tab = "ready" end
+    local newTop = TOP_BASE + ((db.showSearch and not db.collapsedWindow) and SEARCH_H or 0)
+    if newTop ~= TOP then
+        TOP = newTop
+        scroll:SetPoint("TOPLEFT", 6, -TOP)
+        empty:SetPoint("TOPLEFT", 10, -(TOP + 4))
+    end
     local groups, total, counts = QuestsForTab()
     local sig = LayoutSignature(groups)
     if UseButtonsLocked() and sig ~= layoutSig then
@@ -1638,7 +1682,7 @@ function Refresh()
     end
     header:SetText(text)
     UpdateTabs(counts)
-    empty:SetText(L["EMPTY_" .. db.tab:upper()])
+    empty:SetText(searchText ~= "" and L.SEARCH_EMPTY or L["EMPTY_" .. db.tab:upper()])
     empty:SetShown(total == 0)
     routeBtn:SetText(L.ROUTE_BTN)
     routeBtn:SetShown(db.tab == "ready" and total > 0 and SPF() ~= nil)
@@ -1682,6 +1726,9 @@ function Refresh()
     UpdateCollapseButton()
     tabBar:SetShown(not collapsed)
     scroll:SetShown(not collapsed)
+    local showSearch = db.showSearch and not collapsed
+    search:SetShown(showSearch)
+    if not db.showSearch and searchText ~= "" then search:SetText("") end
     if collapsed then empty:Hide() end
     grip:SetShown(not db.lockSize and not collapsed)
     if not sizing then
@@ -1699,7 +1746,7 @@ function Refresh()
     end
     ClampScroll()
 
-    local visible = db.shown and not (db.autoHide and counts.all == 0)
+    local visible = db.shown and not (db.autoHide and (counts.raw or counts.all) == 0)
     frame:SetShown(visible)
     ApplyTrackerHiding()
     UpdateDock()

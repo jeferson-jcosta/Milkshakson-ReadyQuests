@@ -26,6 +26,7 @@ function ns:BuildOptions(db)
     UI:Check(p, L.CFG_SHOW_PLACE, L.CFG_SHOW_PLACE_TIP, function() return db.showPlace end, function(v) db.showPlace = v; R() end)
     UI:Check(p, L.CFG_SHOW_CHAIN, L.CFG_SHOW_CHAIN_TIP, function() return db.showChain end, function(v) db.showChain = v; R() end)
     UI:Check(p, L.CFG_SHOW_DIST, L.CFG_SHOW_DIST_TIP, function() return db.showDistance end, function(v) db.showDistance = v; R() end)
+    UI:Check(p, L.CFG_SHOW_SEARCH, L.CFG_SHOW_SEARCH_TIP, function() return db.showSearch end, function(v) db.showSearch = v; R() end)
 
     UI:Section(p, L.CFG_TRACKER)
     UI:Check(p, L.CFG_SHOW_OBJ, nil, function() return db.showObjectives end, function(v) db.showObjectives = v; R() end)
