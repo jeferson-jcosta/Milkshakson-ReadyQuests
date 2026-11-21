@@ -13,6 +13,7 @@ function ns:BuildOptions(db)
     UI:Check(p, L.CFG_SHOWN, nil, function() return db.shown end, function(v) db.shown = v; R() end)
     UI:Check(p, L.CFG_AUTOHIDE, L.CFG_AUTOHIDE_TIP, function() return db.autoHide end, function(v) db.autoHide = v; R() end)
     UI:Check(p, L.CFG_LOCKED, L.CFG_LOCKED_TIP, function() return db.locked end, function(v) db.locked = v; R() end)
+    UI:Check(p, L.CFG_LOCK_SIZE, L.CFG_LOCK_SIZE_TIP, function() return db.lockSize end, function(v) db.lockSize = v; R() end)
     UI:Slider(p, L.CFG_WIDTH, 220, 800, 10, "%d", function() return db.width end, function(v) db.width = v; R() end)
     UI:Slider(p, L.CFG_MAXH, 70, 1200, 10, "%d", function() return db.maxHeight end, function(v) db.maxHeight = v; R() end)
     UI:Buttons(p, {
