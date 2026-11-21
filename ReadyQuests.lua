@@ -13,7 +13,7 @@ local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, fitHeight = true, showSearch = true, showRewards = true, showPlace = true, showChain = true, showDistance = false,
+    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showDistance = false,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
@@ -988,8 +988,38 @@ search:HookScript("OnTextChanged", function(self)
         if ns.Refresh then ns.Refresh() end
     end
 end)
-search:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
+-- Hidden until opened with the magnifier button; closes when cleared.
+local searchOpen = false
+local function SetSearchOpen(open)
+    searchOpen = open and true or false
+    if not searchOpen then
+        searchText = ""
+        if search:GetText() ~= "" then search:SetText("") end
+        search:ClearFocus()
+    end
+    if ns.Refresh then ns.Refresh() end
+    if searchOpen then search:SetFocus() end
+end
+search:SetScript("OnEscapePressed", function() SetSearchOpen(false) end)
 search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+search:HookScript("OnEditFocusLost", function(self)
+    if strtrim(self:GetText() or "") == "" and searchOpen then SetSearchOpen(false) end
+end)
+
+local searchBtn = CreateFrame("Button", nil, frame)
+searchBtn:SetSize(16, 16)
+local sicon = searchBtn:CreateTexture(nil, "ARTWORK")
+sicon:SetAllPoints()
+sicon:SetTexture("Interface\\Common\\UI-Searchbox-Icon")
+searchBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+searchBtn:SetScript("OnClick", function() SetSearchOpen(not searchOpen) end)
+searchBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(L.SEARCH_HINT)
+    GameTooltip:AddLine(L.SEARCH_TIP, 1, 1, 1, true)
+    GameTooltip:Show()
+end)
+searchBtn:SetScript("OnLeave", GameTooltip_Hide)
 
 -- Scrollable list area (mouse wheel) -------------------------------------
 local scroll = CreateFrame("ScrollFrame", nil, frame)
@@ -1649,7 +1679,7 @@ end
 function Refresh()
     if not db then return end
     if not tContains(ns.TABS, db.tab) then db.tab = "ready" end
-    local newTop = TOP_BASE + ((db.showSearch and not db.collapsedWindow) and SEARCH_H or 0)
+    local newTop = TOP_BASE + ((searchOpen and not db.collapsedWindow) and SEARCH_H or 0)
     if newTop ~= TOP then
         TOP = newTop
         scroll:SetPoint("TOPLEFT", 6, -TOP)
@@ -1693,6 +1723,8 @@ function Refresh()
     shareBtn:ClearAllPoints()
     shareBtn:SetPoint("RIGHT", routeBtn:IsShown() and routeBtn or close, "LEFT", -2, 0)
     shareBtn:SetShown(InDungeonGroup())
+    searchBtn:ClearAllPoints()
+    searchBtn:SetPoint("RIGHT", (shareBtn:IsShown() and shareBtn) or (routeBtn:IsShown() and routeBtn) or close, "LEFT", -3, 0)
 
     local i, y = 0, 0
     for _, g in ipairs(groups) do
@@ -1726,9 +1758,9 @@ function Refresh()
     UpdateCollapseButton()
     tabBar:SetShown(not collapsed)
     scroll:SetShown(not collapsed)
-    local showSearch = db.showSearch and not collapsed
-    search:SetShown(showSearch)
-    if not db.showSearch and searchText ~= "" then search:SetText("") end
+    search:SetShown(searchOpen and not collapsed)
+    searchBtn:SetShown(not collapsed)
+    sicon:SetVertexColor(1, searchText ~= "" and 0.82 or 1, searchText ~= "" and 0 or 1) -- yellow while filtering
     if collapsed then empty:Hide() end
     grip:SetShown(not db.lockSize and not collapsed)
     if not sizing then

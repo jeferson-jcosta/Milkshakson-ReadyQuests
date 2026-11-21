@@ -1,7 +1,7 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
-- **Search box** below the tabs: filters every tab by quest name, objectives or zone (all words must match, case-insensitive). Esc clears it. Option to hide it.
+- **Search**: magnifier button in the title bar opens a search box below the tabs (hidden by default). Filters every tab by quest name, objectives or zone (all words must match, case-insensitive). Esc or the button again closes and clears it; the magnifier turns yellow while a filter is active.
 
 ## 2.9.0
 - Quests with a usable item (torch, bottle, etc.) get a button on the right of their row to use it, with cooldown and charges, like the game's tracker. In combat the list keeps its layout while these buttons are shown (changes apply when combat ends), and scrolling/dragging waits for the end of combat.

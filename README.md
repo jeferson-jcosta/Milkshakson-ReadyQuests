@@ -36,7 +36,7 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 - **Zone**: only the quests of the zone you are in, ready ones first.
 - **All**: your whole log, grouped by zone.
 
-Type in the search box (below the tabs) to filter every tab by quest name, objectives or zone; Esc clears it. Click a group header to collapse it. Right-click a quest for a menu (go there, map, track, share, ask for help, abandon). Inside a dungeon, in a group, a **Share** button shares this dungeon's quests (right-click: every shareable quest); `/rq share [all]`. **Ask for help** posts the quest link and what is still missing in party/raid, a chat channel you joined (General, LookingForGroup...) or /say. The window can replace Questie's tracker: see the Tracker options.
+Click the magnifier in the title bar to search: filters every tab by quest name, objectives or zone; Esc closes it. Click a group header to collapse it. Right-click a quest for a menu (go there, map, track, share, ask for help, abandon). Inside a dungeon, in a group, a **Share** button shares this dungeon's quests (right-click: every shareable quest); `/rq share [all]`. **Ask for help** posts the quest link and what is still missing in party/raid, a chat channel you joined (General, LookingForGroup...) or /say. The window can replace Questie's tracker: see the Tracker options.
 
 ## Options
 Options > AddOns > **Milkshakson > Ready Quests**, or `/mrq config` (also `/rq config`), or right-click the addon button next to the minimap. From there you can:
