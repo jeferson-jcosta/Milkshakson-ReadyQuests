@@ -3,6 +3,7 @@
 ## Unreleased
 - Quests with a usable item (torch, bottle, etc.) get a button on the right of their row to use it, with cooldown and charges, like the game's tracker. In combat the list keeps its layout while these buttons are shown (changes apply when combat ends), and scrolling/dragging waits for the end of combat.
 - Distance and travel time on quest rows are now optional (Options > List, off by default); always in the tooltip, sorting unchanged.
+- Fix: Uldaman quests (turn-in at the entrance, north Badlands) were grouped under Loch Modan. Near a zone border the quest log header now decides between the map that lists the quest and the zone the continent map points to.
 - Tooltip: the money reward is labelled "Money" / "Dinheiro" instead of "Gold" / "Ouro" (it can be silver or copper).
 
 ## 2.8.0
