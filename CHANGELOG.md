@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Quest titles use the game's difficulty colour, as in the quest log: red/orange above you, yellow on level, green easy, grey trivial (per quest from the game, otherwise by level). Failed quests stay red.
+
 ## 2.9.0
 - Quests with a usable item (torch, bottle, etc.) get a button on the right of their row to use it, with cooldown and charges, like the game's tracker. In combat the list keeps its layout while these buttons are shown (changes apply when combat ends), and scrolling/dragging waits for the end of combat.
 - Distance and travel time on quest rows are now optional (Options > List, off by default); always in the tooltip, sorting unchanged.

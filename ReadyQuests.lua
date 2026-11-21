@@ -1352,6 +1352,24 @@ local function SetupObjectiveRow(row, o, y)
     row:Show()
 end
 
+-- The game's own quest difficulty colour (red / orange / yellow / green /
+-- grey), as in the quest log: per quest when the client has it, else by level.
+local function QuestColor(q)
+    local c
+    if C_PlayerInfo and C_PlayerInfo.GetContentDifficultyQuestForPlayer and GetDifficultyColor then
+        local ok, d = pcall(C_PlayerInfo.GetContentDifficultyQuestForPlayer, q.id)
+        if ok and d ~= nil then
+            local ok2, col = pcall(GetDifficultyColor, d)
+            if ok2 then c = col end
+        end
+    end
+    if not c and GetQuestDifficultyColor and q.level and q.level > 0 then
+        local ok, col = pcall(GetQuestDifficultyColor, q.level)
+        if ok then c = col end
+    end
+    if type(c) == "table" and c.r and c.g and c.b then return c end
+end
+
 local function SetupQuestRow(row, q, y)
     row.quest, row.groupKey = q, nil
     row:EnableMouse(true)
@@ -1374,9 +1392,14 @@ local function SetupQuestRow(row, q, y)
     row.text:SetPoint("RIGHT", row.tags, "LEFT", -4, 0) -- re-anchored below once icons are placed
     row.text:SetFontObject(GameFontHighlightSmall)
     local lvl = q.level and q.level > 0 and ("[%d] "):format(q.level) or ""
-    local title = q.title
-    if q.failed then title = "|cffff4040" .. title .. "|r" end
-    row.text:SetText(lvl .. title)
+    local text = lvl .. q.title
+    if q.failed then
+        text = "|cffff4040" .. text .. "|r"
+    else
+        local c = QuestColor(q)
+        if c then text = ("|cff%02x%02x%02x"):format(math.floor(c.r * 255 + 0.5), math.floor(c.g * 255 + 0.5), math.floor(c.b * 255 + 0.5)) .. text .. "|r" end
+    end
+    row.text:SetText(text)
     local right = ""
     if db.showDistance then
         right = q.inInstance and "" or FormatDist(q.dist)
