@@ -1,6 +1,6 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.9.2
 - Clicking a quest now opens it on the map. "Go there" (route / waypoint) stays in the right-click menu.
 - Class and profession quests get an icon (your class icon / the profession icon) and a tooltip line, when the game files them in the quest log under your class or one of your professions. Option to hide it.
 
