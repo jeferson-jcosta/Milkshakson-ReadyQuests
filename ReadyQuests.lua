@@ -590,11 +590,22 @@ tabBar:SetScript("OnSizeChanged", function(self, w)
     end
 end)
 
+local function MaxQuests()
+    local max = C_QuestLog.GetMaxNumQuestsCanAccept and C_QuestLog.GetMaxNumQuestsCanAccept()
+        or (C_QuestLog.GetMaxNumQuests and C_QuestLog.GetMaxNumQuests()) or _G.MAX_QUESTS
+    return type(max) == "number" and max > 0 and max or nil
+end
+
 local function UpdateTabs(counts)
     for _, b in ipairs(tabs) do
         local n = counts[b.key] or 0
         local active = db.tab == b.key
-        b.text:SetText(L[TAB_LABEL[b.key]] .. (n > 0 and (" |cffffffff%d|r"):format(n) or ""))
+        local count = n > 0 and (" |cffffffff%d|r"):format(n) or ""
+        if b.key == "all" then
+            local max = MaxQuests()
+            if max then count = (" |cffffffff%d/%d|r"):format(n, max) end
+        end
+        b.text:SetText(L[TAB_LABEL[b.key]] .. count)
         b.text:SetFontObject(active and GameFontHighlightSmall or GameFontNormalSmall)
         b.bg:SetColorTexture(1, 1, 1, active and 0.12 or 0.04)
         b.line:SetShown(active)
@@ -1099,7 +1110,7 @@ function Refresh()
     elseif db.tab == "zone" then
         text = L.HEADER_ZONE:format(MapName(ZoneOf(C_Map.GetBestMapForUnit("player"))) or "?", total)
     else
-        local max = C_QuestLog.GetMaxNumQuestsCanAccept and C_QuestLog.GetMaxNumQuestsCanAccept()
+        local max = MaxQuests()
         text = max and L.HEADER_ALL_MAX:format(total, max) or L.HEADER_ALL:format(total)
     end
     header:SetText(text)
