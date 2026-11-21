@@ -581,19 +581,36 @@ for i, key in ipairs({ "ready", "progress", "zone", "all" }) do
     b:SetScript("OnLeave", GameTooltip_Hide)
     tabs[i] = b
 end
-tabBar:SetScript("OnSizeChanged", function(self, w)
-    local each = (w - 3 * 2) / 4
+-- Tab widths follow their labels, so counts like "28/40" are never cut off.
+local function LayoutTabs()
+    local w = tabBar:GetWidth()
+    if not w or w <= 0 then return end
+    local need, sum = {}, 0
     for i, b in ipairs(tabs) do
-        b:SetWidth(each)
-        b:ClearAllPoints()
-        b:SetPoint("LEFT", (i - 1) * (each + 2), 0)
+        local tw = b.text.GetUnboundedStringWidth and b.text:GetUnboundedStringWidth() or b.text:GetStringWidth()
+        need[i] = (tw or 40) + 10
+        sum = sum + need[i]
     end
-end)
+    local free = w - 3 * 2
+    local extra = (free - sum) / #tabs
+    local x = 0
+    for i, b in ipairs(tabs) do
+        local bw = math.max(20, need[i] + extra)
+        if sum > free then bw = free * need[i] / sum end
+        b:SetWidth(bw)
+        b:ClearAllPoints()
+        b:SetPoint("LEFT", x, 0)
+        x = x + bw + 2
+    end
+end
+tabBar:SetScript("OnSizeChanged", LayoutTabs)
 
 local function MaxQuests()
     local max = C_QuestLog.GetMaxNumQuestsCanAccept and C_QuestLog.GetMaxNumQuestsCanAccept()
         or (C_QuestLog.GetMaxNumQuests and C_QuestLog.GetMaxNumQuests()) or _G.MAX_QUESTS
-    return type(max) == "number" and max > 0 and max or nil
+    if issecretvalue and issecretvalue(max) then return nil end
+    max = tonumber(max)
+    return max and max > 0 and max or nil
 end
 
 local function UpdateTabs(counts)
@@ -611,6 +628,7 @@ local function UpdateTabs(counts)
         b.line:SetShown(active)
         if not active then b.text:SetTextColor(0.75, 0.75, 0.75) end
     end
+    LayoutTabs()
 end
 
 local empty = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -1048,27 +1066,42 @@ local function ShouldHide(f)
     return db.hideBlizzard
 end
 
+-- Forever's quest tracker can show itself during combat, when Hide() is not
+-- allowed on it. Alpha is never restricted, so it is made invisible right
+-- away and really hidden as soon as combat ends (same approach as Questie).
+local function CanToggle(f)
+    return not InCombatLockdown() or not (f.IsProtected and f:IsProtected())
+end
+
+local function Suppress(f)
+    hiddenByUs[f] = true
+    f:SetAlpha(0)
+    if CanToggle(f) and f:IsShown() then f:Hide() end
+end
+
+local function Release(f)
+    if not hiddenByUs[f] then return end
+    if not CanToggle(f) then return end -- retried on PLAYER_REGEN_ENABLED
+    hiddenByUs[f] = nil
+    f:SetAlpha(1)
+    -- Questie keeps the game's tracker hidden itself when its own tracker is on.
+    local questieOwns = f ~= _G.Questie_BaseFrame and Questie and Questie.db and Questie.db.profile
+        and Questie.db.profile.trackerEnabled
+    if not questieOwns then f:Show() end
+end
+
 local function ApplyTrackerHiding()
     if not db then return end
-    if InCombatLockdown() then return end -- retried on PLAYER_REGEN_ENABLED
     for _, name in ipairs({ "Questie_BaseFrame", "ObjectiveTrackerFrame", "QuestWatchFrame" }) do
         local f = _G[name]
         if f then
             if not hooked[f] then
                 hooked[f] = true
                 f:HookScript("OnShow", function(self)
-                    if ShouldHide(self) and not InCombatLockdown() then
-                        hiddenByUs[self] = true
-                        self:Hide()
-                    end
+                    if ShouldHide(self) then Suppress(self) end
                 end)
             end
-            if ShouldHide(f) then
-                if f:IsShown() then hiddenByUs[f] = true; f:Hide() end
-            elseif hiddenByUs[f] then
-                hiddenByUs[f] = nil
-                f:Show()
-            end
+            if ShouldHide(f) then Suppress(f) else Release(f) end
         end
     end
 end
@@ -1328,6 +1361,16 @@ SlashCmdList.READYQUESTS = function(msg)
         print(PREFIX .. ("options: shown=%s autoHide=%s locked=%s rewards=%s place=%s chain=%s locale=%s"):format(
             tostring(db.shown), tostring(db.autoHide), tostring(db.locked), tostring(db.showRewards),
             tostring(db.showPlace), tostring(db.showChain), tostring(db.locale)))
+        for _, name in ipairs({ "Questie_BaseFrame", "ObjectiveTrackerFrame", "QuestWatchFrame" }) do
+            local f = _G[name]
+            if f then
+                print(PREFIX .. ("%s: shown=%s alpha=%.1f protected=%s hiddenByUs=%s"):format(name,
+                    tostring(f:IsShown()), f:GetAlpha() or -1, tostring(f.IsProtected and f:IsProtected()),
+                    tostring(hiddenByUs[f] or false)))
+            end
+        end
+        print(PREFIX .. ("hideQuestie=%s hideBlizzard=%s maxQuests=%s"):format(tostring(db.hideQuestie),
+            tostring(db.hideBlizzard), tostring(MaxQuests())))
         local groups = GetReadyQuests()
         for _, g in ipairs(groups) do
             for _, q in ipairs(g.quests) do
