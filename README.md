@@ -24,8 +24,8 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 | `/rq route here` | Same, only turn-ins on the current map |
 
 - Quests are grouped by turn-in zone. Groups are sorted by **the easiest turn-in**: travel time with Shortest Path Forever, otherwise straight-line distance. A turn-in in the next zone can come before "On this map" when it is closer. Inside each group, quests are sorted the same way. Distance/travel time on the rows is optional (off by default; always in the tooltip); quests with a usable item get a button on the right to use it, like the game's tracker.
-- **Click**: plan a journey to the turn-in. This uses Shortest Path Forever if installed, otherwise a TomTom waypoint, otherwise it super-tracks the quest.
-- **Right-click**: open the quest on the map.
+- **Click**: open the quest on the map.
+- **Right-click**: menu. **Go there** plans a journey to the turn-in (Shortest Path Forever if installed, otherwise a TomTom waypoint, otherwise it super-tracks the quest); also track, share, ask for help, abandon.
 - **Shift-click**: insert the quest link in chat.
 - **Route** button (left-click: all quests, right-click: this map only): one journey with nearest-first stops. Quests turned in at the same spot become one stop.
 - Drag to move. Drag the bottom-right corner to resize: the window keeps the width and height you set (the option "Shrink the window to fit the list" makes it shrink to the list again, up to that height). The window is pinned by its top-left corner. The mouse wheel scrolls when the list is longer. `/rq lock size` (or the "Lock size" option) hides the grip; `/rq lock` only locks the position.

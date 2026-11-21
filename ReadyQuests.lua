@@ -1336,13 +1336,7 @@ local function Row_OnEnter(self)
     end
     if db.showRewards then AddRewardTooltip(q) end
     GameTooltip:AddLine(" ")
-    if SPF() then
-        GameTooltip:AddLine(L.HINT_CLICK_SPF, 0.5, 0.8, 1)
-    elseif TomTom and TomTom.AddWaypoint then
-        GameTooltip:AddLine(L.HINT_CLICK_TOMTOM, 0.5, 0.8, 1)
-    else
-        GameTooltip:AddLine(L.HINT_CLICK, 0.5, 0.8, 1)
-    end
+    GameTooltip:AddLine(L.HINT_CLICK_MAP, 0.5, 0.8, 1)
     GameTooltip:AddLine(L.HINT_RIGHT, 0.5, 0.8, 1)
     GameTooltip:AddLine(L.HINT_SHIFT, 0.5, 0.8, 1)
     GameTooltip:Show()
@@ -1363,7 +1357,7 @@ local function Row_OnClick(self, button)
     elseif button == "RightButton" then
         QuestMenu(self, q)
     else
-        NavigateTo(q)
+        OpenOnMap(q)
     end
 end
 
@@ -2019,6 +2013,24 @@ SlashCmdList.READYQUESTS = function(msg)
             end
         end
         Refresh()
+    elseif msg == "debug kind" then
+        -- what the game says about each quest's type (for class/profession detection)
+        local header
+        for i = 1, C_QuestLog.GetNumQuestLogEntries() do
+            local info = C_QuestLog.GetInfo(i)
+            if info and info.isHeader then
+                header = info.title
+            elseif info and info.questID and info.questID > 0 then
+                local id = info.questID
+                local tag = C_QuestLog.GetQuestTagInfo and select(2, pcall(C_QuestLog.GetQuestTagInfo, id))
+                local cls = C_QuestInfoSystem and C_QuestInfoSystem.GetQuestClassification
+                    and select(2, pcall(C_QuestInfoSystem.GetQuestClassification, id))
+                local sort = info.questSortID or info.sortID
+                print(("  #%d %s | header=%s | tag=%s/%s type=%s | class=%s | sort=%s | freq=%s"):format(id, tostring(info.title),
+                    tostring(header), type(tag) == "table" and tostring(tag.tagID) or "-", type(tag) == "table" and tostring(tag.tagName) or "-",
+                    type(tag) == "table" and tostring(tag.worldQuestType) or "-", tostring(cls), tostring(sort), tostring(info.frequency)))
+            end
+        end
     elseif msg == "debug" then
         local pmap = C_Map.GetBestMapForUnit("player")
         local pinfo = pmap and C_Map.GetMapInfo(pmap)
