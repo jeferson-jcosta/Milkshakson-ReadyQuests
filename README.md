@@ -18,7 +18,7 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 | `/rq lang <code\|auto>` | Set language (e.g. `/rq lang ptbr`, `/rq lang enus`, `/rq lang auto`) |
 
 | `/rq min` | Collapse/expand the window (also the +/- button at its top-left) |
-| `/rq tab <ready\|active\|zone\|zoneprog\|all>` | Switch tab (also `prontas`, `andamento`, `zona`, `todas`) |
+| `/rq tab <ready\|active\|zone\|all>` | Switch tab (also `prontas`, `andamento`, `zona`, `todas`) |
 | `/rq route` | Plan one journey through every turn-in (Shortest Path Forever) |
 | `/rq route here` | Same, only turn-ins on the current map |
 
@@ -33,7 +33,6 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 - **Ready**: quests ready to turn in, easiest turn-in first (distance, travel time, rewards).
 - **Active**: quests in progress with their objectives (`Wolves slain: 4/8`), nearest first.
 - **Zone**: only the quests of the zone you are in, ready ones first.
-- **Progress**: how many of your current zone's quests you have done (`20/50`), with the available ones (click to go to the quest giver). On its own it learns each zone's quests as you play (the game has no full list); with Questie installed, the total comes from Questie's database.
 - **All**: your whole log, grouped by zone.
 
 Click a group header to collapse it. Right-click a quest for a menu (go there, map, track, share, abandon). The window can replace Questie's tracker: see the Tracker options.
