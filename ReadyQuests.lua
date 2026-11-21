@@ -10,7 +10,7 @@ local TOP = 48 -- header + tab bar
 local OWNER = "ReadyQuests"
 
 local db
-local defaults = { shown = true, locked = false, autoHide = true, point = nil, locale = nil,
+local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
     width = WIDTH, maxHeight = 400, showRewards = true, showPlace = true, showChain = true,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
@@ -1505,7 +1505,7 @@ function Refresh()
     tabBar:SetShown(not collapsed)
     scroll:SetShown(not collapsed)
     if collapsed then empty:Hide() end
-    grip:SetShown(not db.locked and not collapsed)
+    grip:SetShown(not db.lockSize and not collapsed)
     if not sizing then
         frame:SetWidth(db.width)
         if collapsed then
@@ -1526,7 +1526,7 @@ end
 ns.Refresh = function() Refresh() end
 
 grip:SetScript("OnMouseDown", function(_, button)
-    if button ~= "LeftButton" or db.locked then return end
+    if button ~= "LeftButton" or db.lockSize then return end
     sizing = true
     frame:StartSizing("BOTTOMRIGHT")
 end)
@@ -1582,6 +1582,8 @@ events:SetScript("OnEvent", function(_, event, arg1)
         ReadyQuestsDB = ReadyQuestsDB or {}
         db = ReadyQuestsDB
         db.zoneQuests = nil -- data from a removed zone-progress experiment
+        -- "locked" used to lock the size too: keep that for existing settings
+        if db.lockSize == nil and db.locked ~= nil then db.lockSize = db.locked end
         for k, v in pairs(defaults) do
             if db[k] == nil then db[k] = type(v) == "table" and {} or v end
         end
@@ -1617,6 +1619,10 @@ SlashCmdList.READYQUESTS = function(msg)
     if msg == "lock" then
         db.locked = not db.locked
         print(PREFIX .. (db.locked and L.LOCKED or L.UNLOCKED))
+        Refresh()
+    elseif msg == "lock size" or msg == "locksize" then
+        db.lockSize = not db.lockSize
+        print(PREFIX .. (db.lockSize and L.SIZE_LOCKED or L.SIZE_UNLOCKED))
         Refresh()
     elseif msg == "min" or msg == "collapse" or msg == "recolher" then
         ToggleCollapsed()
@@ -1693,7 +1699,7 @@ SlashCmdList.READYQUESTS = function(msg)
             tostring(pmap), pinfo and pinfo.name or "?", pinfo and tostring(pinfo.mapType) or "?",
             tostring(inInst), tostring(instType), tostring(EJ_GetInstanceForMap ~= nil)))
         print(PREFIX .. ("options: shown=%s autoHide=%s locked=%s rewards=%s place=%s chain=%s locale=%s"):format(
-            tostring(db.shown), tostring(db.autoHide), tostring(db.locked), tostring(db.showRewards),
+            tostring(db.shown), tostring(db.autoHide), tostring(db.locked) .. "/size " .. tostring(db.lockSize), tostring(db.showRewards),
             tostring(db.showPlace), tostring(db.showChain), tostring(db.locale)))
         for _, name in ipairs({ "Questie_BaseFrame", "ObjectiveTrackerFrame", "QuestWatchFrame" }) do
             local f = _G[name]

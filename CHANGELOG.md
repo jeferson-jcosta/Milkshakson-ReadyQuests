@@ -1,6 +1,7 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
+- **Lock size** is a separate option (and `/rq lock size`): "Lock position" no longer hides the resize grip. Existing settings keep their behaviour (a locked window starts with its size locked too).
 - Inside a dungeon, in a group: **Share** button in the window. Left-click shares this dungeon's quests, right-click every quest that can be shared (one per second). Also `/rq share` and `/rq share all`.
 - Right-click menu: **Share with party** is always listed. When it can't be used it is greyed out with the reason (not in a group / the game says the quest can't be shared). Works with both the modern and the classic quest log API; prints a confirmation.
 - Dungeon/raid quests in progress (game quest tag) are grouped under the dungeon the game files them under in the quest log (Uldaman, Scarlet Monastery), instead of the zone around the entrance (e.g. Loch Modan, Tirisfal Glades).

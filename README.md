@@ -13,6 +13,7 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 | `/rq` (or `/mrq`, `/readyquests`, `/entregar`) | Show/hide the window. Every `/rq` command also works as `/mrq` |
 | `/rq list` | List in chat |
 | `/rq lock` | Lock/unlock position |
+| `/rq lock size` | Lock/unlock size (hides the resize grip) |
 | `/rq auto` | Toggle "hide when the quest log is empty" (default: on) |
 | `/rq reset` | Reset window position and size |
 | `/rq lang <code\|auto>` | Set language (e.g. `/rq lang ptbr`, `/rq lang enus`, `/rq lang auto`) |
@@ -27,7 +28,7 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 - **Right-click**: open the quest on the map.
 - **Shift-click**: insert the quest link in chat.
 - **Route** button (left-click: all quests, right-click: this map only): one journey with nearest-first stops. Quests turned in at the same spot become one stop.
-- Drag to move. Drag the bottom-right corner to resize: the width is kept, and the height becomes the maximum. The window shrinks to fit the list, and the mouse wheel scrolls when the list is longer. `/rq lock` hides the grip.
+- Drag to move. Drag the bottom-right corner to resize: the width is kept, and the height becomes the maximum. The window shrinks to fit the list, and the mouse wheel scrolls when the list is longer. `/rq lock size` (or the "Lock size" option) hides the grip; `/rq lock` only locks the position.
 
 ## Tabs
 - **Ready**: quests ready to turn in, easiest turn-in first (distance, travel time, rewards).
@@ -39,7 +40,7 @@ Click a group header to collapse it. Right-click a quest for a menu (go there, m
 
 ## Options
 Options > AddOns > **Milkshakson > Ready Quests**, or `/mrq config` (also `/rq config`), or right-click the addon button next to the minimap. From there you can:
-- Show, auto-hide and lock the window, and set its width and maximum height.
+- Show, auto-hide, lock the position and lock the size of the window, and set its width and maximum height.
 - Toggle the rewards, dungeon/cave and chain indicators.
 - Start a route.
 - Pick the language.
