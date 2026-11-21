@@ -13,7 +13,7 @@ local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showDistance = false,
+    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
@@ -275,6 +275,24 @@ end
 -- Every quest in the log, with location, distance and extras.
 local lastOutside -- last known position outside an instance: { map, x, y }
 
+-- Class / profession quests: the game files them in the quest log under your
+-- class name (e.g. "Mage") or a profession name (e.g. "Alchemy").
+local function KindNames()
+    local t = {}
+    local cname, cfile
+    if UnitClass then cname, cfile = UnitClass("player") end
+    if cname then t[cname] = { kind = "class", name = cname, file = cfile } end
+    if GetProfessions and GetProfessionInfo then
+        for _, idx in ipairs({ GetProfessions() }) do
+            if idx then
+                local ok, name, icon = pcall(GetProfessionInfo, idx)
+                if ok and name then t[name] = { kind = "profession", name = name, icon = icon } end
+            end
+        end
+    end
+    return t
+end
+
 local function CollectQuests()
     if poiDirty then RebuildPOIs() end
 
@@ -293,6 +311,7 @@ local function CollectQuests()
     local pc, pwx, pwy = WorldPos(pmap, px, py)
 
     local list, header = {}, nil
+    local kinds = KindNames()
     for i = 1, C_QuestLog.GetNumQuestLogEntries() do
         local info = C_QuestLog.GetInfo(i)
         if info then
@@ -324,6 +343,7 @@ local function CollectQuests()
                 q.place, q.placeName = ns:GetPlace(q.map, q.x, q.y)
                 q.chain = ns:GetChain(id, q.map or pmap)
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
+                q.kind = header and kinds[header] or nil
                 q.side, q.sideText = ns:GetTurnInSide(q)
                 -- Dungeon/raid quest still in progress (quest tag from the game):
                 -- its objectives are in the dungeon, which is the quest log
@@ -1092,6 +1112,18 @@ local function RewardTags(q, xpState)
         local name = q.qtypeName or (q.qtype == "raid" and L.QTYPE_RAID) or (q.qtype == "dungeon" and L.QTYPE_DUNGEON) or q.qtype
         t[#t + 1] = "|cffa335ee[" .. name .. "]|r"
     end
+    if db.showKind and q.kind then
+        local k = q.kind
+        if k.kind == "class" and k.file and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[k.file] then
+            local c = CLASS_ICON_TCOORDS[k.file]
+            t[#t + 1] = ("|TInterface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES:13:13:0:0:256:256:%d:%d:%d:%d|t")
+                :format(math.floor(c[1] * 256 + 0.5), math.floor(c[2] * 256 + 0.5), math.floor(c[3] * 256 + 0.5), math.floor(c[4] * 256 + 0.5))
+        elseif k.kind == "profession" and k.icon then
+            t[#t + 1] = ("|T%s:13:13|t"):format(k.icon)
+        else
+            t[#t + 1] = "|cff80c0ff[" .. k.name .. "]|r"
+        end
+    end
     if db.showChain and q.chain then
         local c = q.chain
         local known = c.source ~= "learned"
@@ -1284,6 +1316,9 @@ local function Row_OnEnter(self)
     end
     if q.qtype then
         GameTooltip:AddLine(L.QTYPE_LINE:format(q.qtypeName or q.qtype), 0.75, 0.45, 1)
+    end
+    if q.kind then
+        GameTooltip:AddLine((q.kind.kind == "class" and L.KIND_CLASS or L.KIND_PROF):format(q.kind.name), 0.5, 0.75, 1)
     end
     if q.chain then
         local c = q.chain

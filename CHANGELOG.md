@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Class and profession quests get an icon (your class icon / the profession icon) and a tooltip line, when the game files them in the quest log under your class or one of your professions. Option to hide it.
+
 ## 2.9.1
 - **Search**: magnifier button in the title bar opens a search box below the tabs (hidden by default). Filters every tab by quest name, objectives or zone (all words must match, case-insensitive). Esc or the button again closes and clears it; the magnifier turns yellow while a filter is active.
 - Quest titles use the game's difficulty colour, as in the quest log: red/orange above you, yellow on level, green easy, grey trivial (per quest from the game, otherwise by level). Failed quests stay red.
