@@ -213,6 +213,19 @@ local function QuestLocation(id)
     end
 end
 
+-- The quest's usable item (the one the game's tracker shows a button for).
+local function QuestUseItem(id, ready)
+    if not GetQuestLogSpecialItemInfo then return nil end
+    local idx = (C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(id))
+        or (GetQuestLogIndexByID and GetQuestLogIndexByID(id))
+    if not idx or idx <= 0 then return nil end
+    local ok, link, icon, charges, showWhenComplete = pcall(GetQuestLogSpecialItemInfo, idx)
+    if not (ok and link) then return nil end
+    if ready and not showWhenComplete then return nil end
+    local itemID = tonumber(tostring(link):match("item:(%d+)"))
+    return { link = link, icon = icon, charges = charges, itemID = itemID, logIndex = idx }
+end
+
 local function Objectives(id)
     local ok, list = pcall(C_QuestLog.GetQuestObjectives, id)
     if not (ok and type(list) == "table") then return nil end
@@ -318,6 +331,7 @@ local function CollectQuests()
                     q.group = zname or header or L.UNKNOWN_ZONE
                 end
                 if not q.ready then q.objectives = Objectives(id) end
+                q.useItem = QuestUseItem(id, q.ready)
                 list[#list + 1] = q
             end
         end
@@ -640,7 +654,7 @@ frame:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
 frame:Hide()
 
 frame:SetScript("OnDragStart", function(self)
-    if not db.locked then self:StartMoving() end
+    if not db.locked and not (ns.UseButtonsLocked and ns.UseButtonsLocked()) then self:StartMoving() end
 end)
 local dock = { active = false, userMoved = false }
 
@@ -655,6 +669,7 @@ end
 
 frame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
+    if ns.SyncUseButtons then ns.SyncUseButtons() end
     local p, _, rp, x, y = self:GetPoint()
     db.point = { p, rp, x, y }
     if dock.active then dock.active, dock.userMoved = false, true end
@@ -871,8 +886,10 @@ local function ClampScroll()
     scroll:SetVerticalScroll(math.min(math.max(scroll:GetVerticalScroll(), 0), maxScroll))
 end
 scroll:SetScript("OnMouseWheel", function(self, delta)
+    if ns.UseButtonsLocked and ns.UseButtonsLocked() then return end
     self:SetVerticalScroll(self:GetVerticalScroll() - delta * ROW_H * 2)
     ClampScroll()
+    if ns.SyncUseButtons then ns.SyncUseButtons() end
 end)
 
 -- Resize grip (bottom-right) ----------------------------------------------
@@ -1223,6 +1240,8 @@ local function SetupHeaderRow(row, g, y, collapsed)
         row.text:SetText(sign .. "|cffffd100" .. g.title .. "|r")
     end
     row.dist:SetText(("(%d)"):format(#g.quests))
+    row.tags:ClearAllPoints()
+    row.tags:SetPoint("RIGHT", row.dist, "LEFT", -4, 0)
     row:Show()
 end
 
@@ -1274,11 +1293,9 @@ local function SetupQuestRow(row, q, y)
     local title = q.title
     if q.failed then title = "|cffff4040" .. title .. "|r" end
     row.text:SetText(lvl .. title)
-    local right = q.inInstance and "" or FormatDist(q.dist)
-    if q.eta then
-        right = (right ~= "" and (right .. " · ") or "") .. FormatTime(q.eta)
-    end
-    row.dist:SetText(right)
+    row.dist:SetText("")
+    row.tags:ClearAllPoints()
+    row.tags:SetPoint("RIGHT", row, "RIGHT", q.useItem and -(ROW_H + 4) or -2, 0)
     row.tags:SetText(RewardTags(q, ns:XPState()))
     local left = SetItemButtons(row, q)
     if left ~= row.tags then
@@ -1366,10 +1383,151 @@ local function QuestsForTab()
     return groups, total, counts
 end
 
+---------------------------------------------------------------------------
+-- "Use item" buttons. They must be secure buttons, which cannot be created,
+-- moved, shown or hidden in combat. So they are parented to UIParent and
+-- placed over their rows (never anchored to them, which would lock the whole
+-- window in combat). In combat the list keeps its layout while buttons are
+-- shown (a change is applied when combat ends), scrolling and dragging wait,
+-- and a button whose row is not where it was only goes transparent.
+---------------------------------------------------------------------------
+local useButtons, usedButtons = {}, 0
+local layoutSig, pendingRefresh
+
+local function UseButton_OnEnter(self)
+    if not self.link then return end
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    pcall(GameTooltip.SetHyperlink, GameTooltip, self.link)
+    GameTooltip:Show()
+end
+
+local function GetUseButton(i)
+    local b = useButtons[i]
+    if b then return b end
+    b = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
+    b:SetSize(ROW_H - 2, ROW_H - 2)
+    b:RegisterForClicks("AnyUp", "AnyDown")
+    b:SetAttribute("type", "item")
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetAllPoints()
+    b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    b.count:SetPoint("BOTTOMRIGHT", 1, -1)
+    if CreateFrame and pcall(CreateFrame, "Cooldown", nil, b, "CooldownFrameTemplate") then
+        b.cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
+        b.cd:SetAllPoints()
+    end
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(1, 1, 1, 0.25)
+    b:SetScript("OnEnter", UseButton_OnEnter)
+    b:SetScript("OnLeave", GameTooltip_Hide)
+    b:Hide()
+    useButtons[i] = b
+    return b
+end
+
+local function RowInView(row)
+    if not (row:IsVisible() and scroll:IsVisible()) then return false end
+    local top, bottom = row:GetTop(), row:GetBottom()
+    local stop, sbottom = scroll:GetTop(), scroll:GetBottom()
+    return top and bottom and stop and sbottom and bottom >= sbottom - 1 and top <= stop + 1
+end
+
+local function PlaceUseButton(b, row)
+    local s = row:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    local right, mid = row:GetRight(), select(2, row:GetCenter())
+    if not (right and mid) then return false end
+    b:ClearAllPoints()
+    b:SetPoint("RIGHT", UIParent, "BOTTOMLEFT", (right - 3) * s, mid * s)
+    b:SetFrameStrata(frame:GetFrameStrata())
+    b:SetFrameLevel(frame:GetFrameLevel() + 20)
+    b.x, b.y = right, mid
+    return true
+end
+
+-- Cooldown, charges, and visibility. Safe in combat (alpha only).
+local function UpdateUseButtons()
+    local combat = InCombatLockdown()
+    for i = 1, usedButtons do
+        local b = useButtons[i]
+        local row = b.row
+        local ok = row and type(row.quest) == "table" and row.quest.id == b.questID and RowInView(row)
+        if ok and combat then
+            local right, mid = row:GetRight(), select(2, row:GetCenter())
+            ok = right == b.x and mid == b.y
+        end
+        if combat then
+            b:SetAlpha(ok and 1 or 0)
+        else
+            b:SetShown(ok and true or false)
+            b:SetAlpha(1)
+        end
+        if ok and b.logIndex then
+            if b.cd and GetQuestLogSpecialItemCooldown then
+                local start, dur, enable = GetQuestLogSpecialItemCooldown(b.logIndex)
+                if start and dur and dur > 0 and enable ~= 0 then b.cd:SetCooldown(start, dur) else b.cd:Clear() end
+            end
+        end
+    end
+end
+
+local function SyncUseButtons()
+    if InCombatLockdown() then UpdateUseButtons(); return end
+    local n = 0
+    for _, row in ipairs(rows) do
+        local q = row:IsShown() and row.quest
+        if type(q) == "table" and q.useItem and RowInView(row) then
+            n = n + 1
+            local b = GetUseButton(n)
+            local it = q.useItem
+            b:SetAttribute("item", it.itemID and ("item:" .. it.itemID) or it.link)
+            b.icon:SetTexture(it.icon)
+            b.count:SetText(it.charges and it.charges > 1 and it.charges or "")
+            b.link, b.logIndex, b.questID, b.row = it.link, it.logIndex, q.id, row
+            if PlaceUseButton(b, row) then b:Show() else b:Hide() end
+        end
+    end
+    for i = n + 1, #useButtons do
+        local b = useButtons[i]
+        b:Hide()
+        b.row, b.questID = nil, nil
+    end
+    usedButtons = n
+    UpdateUseButtons()
+end
+ns.SyncUseButtons = SyncUseButtons
+
+local function UseButtonsLocked()
+    return usedButtons > 0 and InCombatLockdown()
+end
+ns.UseButtonsLocked = UseButtonsLocked
+for _, ev in ipairs({ "OnShow", "OnHide", "OnSizeChanged" }) do
+    frame:HookScript(ev, function() SyncUseButtons() end)
+end
+scroll:HookScript("OnVerticalScroll", function() SyncUseButtons() end)
+
+local function LayoutSignature(groups)
+    local t = { db.tab, tostring(db.collapsedWindow) }
+    for _, g in ipairs(groups) do
+        t[#t + 1] = g.key .. (db.collapsed[db.tab .. ":" .. g.key] and "-" or "+")
+        for _, q in ipairs(g.quests) do
+            t[#t + 1] = q.id .. ":" .. (q.objectives and #q.objectives or 0)
+        end
+    end
+    return table.concat(t, ",")
+end
+
 function Refresh()
     if not db then return end
     if not tContains(ns.TABS, db.tab) then db.tab = "ready" end
     local groups, total, counts = QuestsForTab()
+    local sig = LayoutSignature(groups)
+    if UseButtonsLocked() and sig ~= layoutSig then
+        pendingRefresh = true -- the buttons cannot follow now; redo after combat
+        UpdateUseButtons()
+        return
+    end
+    layoutSig = sig
 
     local text
     if db.tab == "ready" then
@@ -1443,6 +1601,7 @@ function Refresh()
     frame:SetShown(visible)
     ApplyTrackerHiding()
     UpdateDock()
+    SyncUseButtons()
 end
 
 ns.Refresh = function() Refresh() end
@@ -1493,7 +1652,11 @@ for _, e in ipairs({
 end
 
 events:SetScript("OnEvent", function(_, event, arg1)
-    if event == "PLAYER_REGEN_ENABLED" then ApplyTrackerHiding(); return end
+    if event == "PLAYER_REGEN_ENABLED" then
+        ApplyTrackerHiding()
+        if pendingRefresh then pendingRefresh = false; Refresh() else SyncUseButtons() end
+        return
+    end
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then
             if db and (arg1 == "Questie" or arg1 == "Blizzard_ObjectiveTracker") then
