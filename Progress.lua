@@ -1,5 +1,9 @@
--- Zone progress: how many of a zone's quests you have done ("12/100"),
--- using Questie's own Journey "Quests by Zone" lists, so the numbers match it.
+-- Zone progress: how many of a zone's quests you have done ("20/50").
+-- Works on its own with the game's API: the quests of a zone are learned from
+-- your quest log and from the quests the game shows as available on the map,
+-- and the game says which of them you have completed. The game has no list of
+-- every quest in a zone, so this total grows as you play. When Questie is
+-- installed (optional), its quest database gives the full total instead.
 local _, ns = ...
 
 local function Questie_()
@@ -63,22 +67,122 @@ local cache = { key = nil, t = 0, data = nil }
 
 function ns:InvalidateZoneProgress() cache.key = nil end
 
+---------------------------------------------------------------------------
+-- Learned from the game (no other addon needed)
+---------------------------------------------------------------------------
+-- ReadyQuestsDB.zoneQuests[zoneMapID][questID] = { t = title, l = level }
+local function ZoneStore(zone)
+    local db = ns.db
+    if not (db and zone) then return nil end
+    db.zoneQuests = db.zoneQuests or {}
+    db.zoneQuests[zone] = db.zoneQuests[zone] or {}
+    return db.zoneQuests[zone]
+end
+
+-- Quests in your log: called by the list builder with each quest's zone.
+function ns:LearnQuest(zone, id, title, level)
+    local store = ZoneStore(zone)
+    if not (store and id and id > 0) then return end
+    local e = store[id]
+    if not e then
+        store[id] = { t = title, l = level }
+        if cache.key == zone then cache.key = nil end
+    elseif title and e.t ~= title then
+        e.t, e.l = title, level or e.l
+    end
+end
+
+-- Quests the game offers on this zone's map right now (not accepted yet).
+local available = { zone = nil, t = 0, list = {} }
+local function AvailableNow(zone)
+    if not (C_QuestLine and C_QuestLine.GetAvailableQuestLines) then return {} end
+    local now = GetTime()
+    if available.zone == zone and now - available.t < 15 then return available.list end
+    if C_QuestLine.RequestQuestLinesForMap then pcall(C_QuestLine.RequestQuestLinesForMap, zone) end
+    local ok, lines = pcall(C_QuestLine.GetAvailableQuestLines, zone)
+    local list = {}
+    if ok and type(lines) == "table" then
+        for _, info in ipairs(lines) do
+            local id = type(info) == "table" and tonumber(info.questID)
+            if id and id > 0 then
+                list[id] = { title = info.questName, x = info.x, y = info.y }
+            end
+        end
+    end
+    available.zone, available.t, available.list = zone, now, list
+    return list
+end
+
+local function IsDone(id)
+    if C_QuestLog.IsQuestFlaggedCompleted then
+        local ok, done = pcall(C_QuestLog.IsQuestFlaggedCompleted, id)
+        if ok then return done and true or false end
+    end
+    return false
+end
+
+local function LearnedProgress(zone, zoneName)
+    local store = ZoneStore(zone)
+    if not store then return nil, "nozone" end
+    local avail = AvailableNow(zone)
+    for id, a in pairs(avail) do
+        if not store[id] then store[id] = { t = a.title } end
+    end
+    local data = { zoneName = zoneName, available = {}, completed = {}, missing = {}, learned = true }
+    local done, total = 0, 0
+    for id, e in pairs(store) do
+        total = total + 1
+        local q = { id = id, title = e.t or (C_QuestLog.GetTitleForQuestID and C_QuestLog.GetTitleForQuestID(id)) or ("#" .. id),
+            level = e.l, progressOnly = true }
+        q.inLog = C_QuestLog.IsOnQuest and C_QuestLog.IsOnQuest(id) or false
+        if IsDone(id) then
+            done = done + 1
+            data.completed[#data.completed + 1] = q
+        else
+            local a = avail[id]
+            if a and a.x and a.y then q.map, q.x, q.y = zone, a.x, a.y end
+            -- in your log, or offered on the map right now
+            if q.inLog or a then
+                data.available[#data.available + 1] = q
+            else
+                data.missing[#data.missing + 1] = q -- seen before, not offered now
+            end
+        end
+    end
+    local function byTitle(a, b) return (a.title or "") < (b.title or "") end
+    table.sort(data.available, byTitle)
+    table.sort(data.completed, byTitle)
+    table.sort(data.missing, byTitle)
+    data.done, data.total = done, total
+    return data
+end
+
 -- Returns progress for a zone-level uiMapID:
 -- { zoneName, done, total, available = {...}, completed = {...}, missing = {...} }
 -- or nil, reason ("noquestie" | "loading" | "nozone").
-function ns:GetZoneProgress(uiMapID, zoneName)
+-- Questie's lists for a zone, or nil when Questie is not installed / not ready.
+local function QuestieTree(uiMapID)
     local journey, zoneDB, questDB = Questie_()
-    if not journey then return nil, "noquestie" end
-    if not (journey.zoneMap and journey.private and journey.private.questsByZone) then return nil, "loading" end
-    if not (uiMapID and zoneDB and zoneDB.GetAreaIdByUiMapId) then return nil, "nozone" end
+    if not (journey and journey.zoneMap and journey.private and journey.private.questsByZone) then return nil end
+    if not (zoneDB and zoneDB.GetAreaIdByUiMapId) then return nil end
+    local okA, areaId = pcall(zoneDB.GetAreaIdByUiMapId, zoneDB, uiMapID)
+    if not (okA and areaId) then return nil end
+    local okT, tree = pcall(journey.private.questsByZone.CollectZoneQuests, journey.private.questsByZone, areaId)
+    if not (okT and type(tree) == "table") then return nil end
+    return tree, zoneDB, questDB
+end
 
+function ns:GetZoneProgress(uiMapID, zoneName)
+    if not uiMapID then return nil, "nozone" end
     local now = GetTime()
     if cache.key == uiMapID and cache.data and now - cache.t < 30 then return cache.data end
 
-    local okA, areaId = pcall(zoneDB.GetAreaIdByUiMapId, zoneDB, uiMapID)
-    if not (okA and areaId) then return nil, "nozone" end
-    local okT, tree = pcall(journey.private.questsByZone.CollectZoneQuests, journey.private.questsByZone, areaId)
-    if not (okT and type(tree) == "table") then return nil, "nozone" end
+    local tree, zoneDB, questDB = QuestieTree(uiMapID)
+    if not tree then
+        local data, reason = LearnedProgress(uiMapID, zoneName)
+        if data then cache.key, cache.t, cache.data = uiMapID, now, data end
+        return data, reason
+    end
 
     local data = { zoneName = zoneName, available = {}, completed = {}, missing = {} }
     local done, total = Counts(tree[4] and tree[4].text)

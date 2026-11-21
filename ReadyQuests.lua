@@ -278,6 +278,10 @@ local function CollectQuests()
                 q.chain = ns:GetChain(id)
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
                 q.side, q.sideText = ns:GetTurnInSide(q)
+                -- Zone progress learns which quests belong to which zone from your log:
+                -- the log header when it is the zone you are in, else the quest's map.
+                local learnZone = (pzoneName and header == pzoneName and pzone) or q.zone
+                if learnZone and not inst then ns:LearnQuest(learnZone, id, q.title, q.level) end
                 if InCurrentInstance(inst, q, zname) then
                     q.dist, q.here, q.group, q.inInstance = 0, true, "\0here", true
                 elseif inst and q.here then
@@ -997,7 +1001,8 @@ local function ProgressTooltip(self, q)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:SetText(q.title)
     if q.level and q.level > 0 then GameTooltip:AddLine(L.ZP_LEVEL:format(q.level), 0.8, 0.8, 0.8) end
-    local status = q.status == "done" and L.ZP_STATUS_DONE or q.status == "missing" and L.ZP_STATUS_MISSING
+    local status = q.status == "done" and L.ZP_STATUS_DONE
+        or q.status == "missing" and (q.learned and L.ZP_STATUS_SEEN or L.ZP_STATUS_MISSING)
         or (q.inLog and L.ZP_IN_LOG) or L.ZP_STATUS_AVAILABLE
     GameTooltip:AddLine(status, 1, 0.82, 0)
     if q.giver then GameTooltip:AddLine(L.ZP_GIVER:format(q.giver), 1, 1, 1) end
@@ -1323,11 +1328,11 @@ local function ZoneProgressGroups(data)
     local groups = {}
     local function Add(key, title, list, status, collapsed)
         if #list == 0 then return end
-        for _, q in ipairs(list) do q.status = status end
+        for _, q in ipairs(list) do q.status, q.learned = status, data.learned end
         groups[#groups + 1] = { key = key, title = title, quests = list, defaultCollapsed = collapsed }
     end
     Add("avail", L.ZP_AVAILABLE, data.available, "available", false)
-    Add("missing", L.ZP_MISSING, data.missing, "missing", true)
+    Add("missing", data.learned and L.ZP_SEEN or L.ZP_MISSING, data.missing, "missing", true)
     Add("done", L.ZP_DONE, data.completed, "done", true)
     return groups
 end
@@ -1335,15 +1340,17 @@ end
 function Refresh()
     if not db then return end
     if not tContains(ns.TABS, db.tab) then db.tab = "ready" end
-    local zpData, zpReason = ZoneProgress()
-    local groups, total, counts
+    -- The quest list runs first: it teaches zone progress which quests belong to the zone.
+    local groups, total, counts, zpData, zpReason
     if db.tab == "zoneprog" then
         counts = select(6, GetQuests("ready"))
+        zpData, zpReason = ZoneProgress()
         groups = zpData and ZoneProgressGroups(zpData) or {}
         total = 0
         for _, g in ipairs(groups) do total = total + #g.quests end
     else
         groups, total, counts = QuestsForTab()
+        zpData, zpReason = ZoneProgress()
     end
     counts.zoneprogData = zpData
 
@@ -1373,7 +1380,9 @@ function Refresh()
     header:SetText(text)
     UpdateTabs(counts)
     if db.tab == "zoneprog" and not zpData then
-        empty:SetText(zpReason == "noquestie" and L.ZP_NEED_QUESTIE or zpReason == "loading" and L.ZP_LOADING or L.ZP_NO_ZONE)
+        empty:SetText(L.ZP_NO_ZONE)
+    elseif db.tab == "zoneprog" and zpData.learned and zpData.total == 0 then
+        empty:SetText(L.ZP_LEARNING)
     else
         empty:SetText(L["EMPTY_" .. db.tab:upper()])
     end
@@ -1491,6 +1500,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
         end
         ReadyQuestsDB = ReadyQuestsDB or {}
         db = ReadyQuestsDB
+        ns.db = db
         for k, v in pairs(defaults) do
             if db[k] == nil then db[k] = type(v) == "table" and {} or v end
         end
