@@ -198,7 +198,7 @@ local function Objectives(id)
     return out
 end
 
-ns.TABS = { "ready", "progress", "zone", "all" }
+ns.TABS = { "ready", "progress", "zone", "zoneprog", "all" }
 
 -- Inside a dungeon the game gives no player position, so distances are
 -- unknown there. Quests that belong to the instance you are in count as
@@ -305,13 +305,14 @@ local function InTab(q, tab)
     if tab == "ready" then return q.ready end
     if tab == "progress" then return not q.ready end
     if tab == "zone" then return q.here end
+    if tab == "zoneprog" then return false end
     return true
 end
 
 -- Groups the quests of one tab. Returns groups, count, pmap, px, py, counts (per tab).
 local function GetQuests(tab)
     local list, pmap, px, py, pzone = CollectQuests()
-    local counts = { ready = 0, progress = 0, zone = 0, all = 0 }
+    local counts = { ready = 0, progress = 0, zone = 0, zoneprog = 0, all = 0 }
     for _, q in ipairs(list) do
         for _, t in ipairs(ns.TABS) do
             if InTab(q, t) then counts[t] = counts[t] + 1 end
@@ -670,8 +671,8 @@ routeBtn:SetScript("OnLeave", GameTooltip_Hide)
 
 -- Tab bar ------------------------------------------------------------------
 local tabs = {}
-local TAB_LABEL = { ready = "TAB_READY", progress = "TAB_PROGRESS", zone = "TAB_ZONE", all = "TAB_ALL" }
-local TAB_TIP = { ready = "TAB_READY_TIP", progress = "TAB_PROGRESS_TIP", zone = "TAB_ZONE_TIP", all = "TAB_ALL_TIP" }
+local TAB_LABEL = { ready = "TAB_READY", progress = "TAB_PROGRESS", zone = "TAB_ZONE", zoneprog = "TAB_ZONEPROG", all = "TAB_ALL" }
+local TAB_TIP = { ready = "TAB_READY_TIP", progress = "TAB_PROGRESS_TIP", zone = "TAB_ZONE_TIP", zoneprog = "TAB_ZONEPROG_TIP", all = "TAB_ALL_TIP" }
 local tabBar = CreateFrame("Frame", nil, frame)
 tabBar:SetPoint("TOPLEFT", 6, -25)
 tabBar:SetPoint("TOPRIGHT", -6, -25)
@@ -682,7 +683,7 @@ local function SelectTab(key)
     Refresh()
 end
 
-for i, key in ipairs({ "ready", "progress", "zone", "all" }) do
+for i, key in ipairs(ns.TABS) do
     local b = CreateFrame("Button", nil, tabBar)
     b.key = key
     b:SetHeight(18)
@@ -720,7 +721,7 @@ local function LayoutTabs()
         need[i] = (tw or 40) + 10
         sum = sum + need[i]
     end
-    local free = w - 3 * 2
+    local free = w - (#tabs - 1) * 2
     local extra = (free - sum) / #tabs
     local x = 0
     for i, b in ipairs(tabs) do
@@ -750,6 +751,9 @@ local function UpdateTabs(counts)
         if b.key == "all" then
             local max = MaxQuests()
             if max then count = (" |cffffffff%d/%d|r"):format(n, max) end
+        elseif b.key == "zoneprog" then
+            local zp = counts.zoneprogData
+            count = zp and zp.total > 0 and (" |cffffffff%d/%d|r"):format(zp.done, zp.total) or ""
         end
         b.text:SetText(L[TAB_LABEL[b.key]] .. count)
         b.text:SetFontObject(active and GameFontHighlightSmall or GameFontNormalSmall)
@@ -989,9 +993,30 @@ local function SetItemButtons(row, q)
     return anchor
 end
 
+local function ProgressTooltip(self, q)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText(q.title)
+    if q.level and q.level > 0 then GameTooltip:AddLine(L.ZP_LEVEL:format(q.level), 0.8, 0.8, 0.8) end
+    local status = q.status == "done" and L.ZP_STATUS_DONE or q.status == "missing" and L.ZP_STATUS_MISSING
+        or (q.inLog and L.ZP_IN_LOG) or L.ZP_STATUS_AVAILABLE
+    GameTooltip:AddLine(status, 1, 0.82, 0)
+    if q.giver then GameTooltip:AddLine(L.ZP_GIVER:format(q.giver), 1, 1, 1) end
+    if q.map and q.x then
+        GameTooltip:AddLine(("%s %.1f, %.1f"):format(MapName(q.map) or "", q.x * 100, q.y * 100), 0.7, 0.7, 0.7)
+    end
+    GameTooltip:AddLine(" ")
+    if q.inLog then
+        GameTooltip:AddLine(L.HINT_CLICK, 0.5, 0.8, 1)
+    elseif q.map and q.status ~= "done" then
+        GameTooltip:AddLine(L.ZP_HINT_GIVER, 0.5, 0.8, 1)
+    end
+    GameTooltip:Show()
+end
+
 local function Row_OnEnter(self)
     local q = self.quest
     if not q then return end
+    if q.progressOnly then return ProgressTooltip(self, q) end
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     local link = GetQuestLink(q.id)
     if not (link and pcall(GameTooltip.SetHyperlink, GameTooltip, link)) then
@@ -1046,12 +1071,26 @@ end
 
 local function Row_OnClick(self, button)
     if self.groupKey then
-        db.collapsed[self.groupKey] = not db.collapsed[self.groupKey] or nil
+        db.collapsed[self.groupKey] = not self.isCollapsed
         Refresh()
         return
     end
     local q = self.quest
     if not q then return end
+    if q.progressOnly and not IsShiftKeyDown() then
+        if q.inLog then
+            OpenOnMap(q)
+        elseif q.map and q.status ~= "done" then
+            local api = SPF()
+            if api and api.NavigateRoute then
+                pcall(api.NavigateRoute, OWNER, { { map = q.map, x = q.x, y = q.y, kind = "pickup",
+                    title = L.STOP_PICKUP:format(q.title) } })
+            elseif TomTom and TomTom.AddWaypoint then
+                TomTom:AddWaypoint(q.map, q.x, q.y, { title = q.title, from = OWNER, crazy = true })
+            end
+        end
+        return
+    end
     if IsShiftKeyDown() then
         local link = GetQuestLink(q.id)
         local insert = (ChatFrameUtil and ChatFrameUtil.InsertLink) or ChatEdit_InsertLink
@@ -1101,6 +1140,7 @@ end
 local function SetupHeaderRow(row, g, y, collapsed)
     row.quest = nil
     row.groupKey = db.tab .. ":" .. g.key
+    row.isCollapsed = collapsed
     row:EnableMouse(true)
     row:SetHeight(HEADER_H)
     row:ClearAllPoints()
@@ -1154,7 +1194,13 @@ local function SetupQuestRow(row, q, y)
     row:ClearAllPoints()
     row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
     row:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, y)
-    if q.ready then
+    if q.progressOnly then
+        local tex = q.status == "done" and "Interface\\RaidFrame\\ReadyCheck-Ready"
+            or (q.inLog and "Interface\\GossipFrame\\IncompleteQuestIcon")
+            or "Interface\\GossipFrame\\AvailableQuestIcon"
+        row.icon:SetTexture(tex)
+        row.icon:SetDesaturated(q.status == "missing")
+    elseif q.ready then
         row.icon:SetTexture("Interface\\GossipFrame\\ActiveQuestIcon")
         row.icon:SetDesaturated(false)
     else
@@ -1171,8 +1217,10 @@ local function SetupQuestRow(row, q, y)
     local lvl = q.level and q.level > 0 and ("[%d] "):format(q.level) or ""
     local title = q.title
     if q.failed then title = "|cffff4040" .. title .. "|r" end
+    if q.status == "done" or q.status == "missing" then title = "|cff9d9d9d" .. title .. "|r" end
     row.text:SetText(lvl .. title)
     local right = q.inInstance and "" or FormatDist(q.dist)
+    if q.progressOnly and q.inLog then right = L.ZP_IN_LOG end
     if q.eta then
         right = (right ~= "" and (right .. " · ") or "") .. FormatTime(q.eta)
     end
@@ -1264,10 +1312,40 @@ local function QuestsForTab()
     return groups, total, counts
 end
 
+local function ZoneProgress()
+    local pmap = C_Map.GetBestMapForUnit("player")
+    local zone = ZoneOf(pmap)
+    local data, reason = ns:GetZoneProgress(zone, MapName(zone))
+    return data, reason
+end
+
+local function ZoneProgressGroups(data)
+    local groups = {}
+    local function Add(key, title, list, status, collapsed)
+        if #list == 0 then return end
+        for _, q in ipairs(list) do q.status = status end
+        groups[#groups + 1] = { key = key, title = title, quests = list, defaultCollapsed = collapsed }
+    end
+    Add("avail", L.ZP_AVAILABLE, data.available, "available", false)
+    Add("missing", L.ZP_MISSING, data.missing, "missing", true)
+    Add("done", L.ZP_DONE, data.completed, "done", true)
+    return groups
+end
+
 function Refresh()
     if not db then return end
     if not tContains(ns.TABS, db.tab) then db.tab = "ready" end
-    local groups, total, counts = QuestsForTab()
+    local zpData, zpReason = ZoneProgress()
+    local groups, total, counts
+    if db.tab == "zoneprog" then
+        counts = select(6, GetQuests("ready"))
+        groups = zpData and ZoneProgressGroups(zpData) or {}
+        total = 0
+        for _, g in ipairs(groups) do total = total + #g.quests end
+    else
+        groups, total, counts = QuestsForTab()
+    end
+    counts.zoneprogData = zpData
 
     local text
     if db.tab == "ready" then
@@ -1281,13 +1359,24 @@ function Refresh()
         text = L.HEADER_PROGRESS:format(total)
     elseif db.tab == "zone" then
         text = L.HEADER_ZONE:format(MapName(ZoneOf(C_Map.GetBestMapForUnit("player"))) or "?", total)
+    elseif db.tab == "zoneprog" then
+        if zpData and zpData.total > 0 then
+            local pct = math.floor(zpData.done / zpData.total * 100 + 0.5)
+            text = L.HEADER_ZONEPROG:format(zpData.zoneName or "?", zpData.done, zpData.total, pct)
+        else
+            text = L.TAB_ZONEPROG
+        end
     else
         local max = MaxQuests()
         text = max and L.HEADER_ALL_MAX:format(total, max) or L.HEADER_ALL:format(total)
     end
     header:SetText(text)
     UpdateTabs(counts)
-    empty:SetText(L["EMPTY_" .. db.tab:upper()])
+    if db.tab == "zoneprog" and not zpData then
+        empty:SetText(zpReason == "noquestie" and L.ZP_NEED_QUESTIE or zpReason == "loading" and L.ZP_LOADING or L.ZP_NO_ZONE)
+    else
+        empty:SetText(L["EMPTY_" .. db.tab:upper()])
+    end
     empty:SetShown(total == 0)
     routeBtn:SetText(L.ROUTE_BTN)
     routeBtn:SetShown(db.tab == "ready" and total > 0 and SPF() ~= nil)
@@ -1295,7 +1384,8 @@ function Refresh()
     local i, y = 0, 0
     for _, g in ipairs(groups) do
         local key = db.tab .. ":" .. g.key
-        local collapsed = db.collapsed[key] and true or false
+        local collapsed = db.collapsed[key]
+        if collapsed == nil then collapsed = g.defaultCollapsed or false end
         i = i + 1
         SetupHeaderRow(GetRow(i), g, y, collapsed)
         y = y - HEADER_H
@@ -1412,6 +1502,10 @@ events:SetScript("OnEvent", function(_, event, arg1)
     if event == "UNIT_QUEST_LOG_CHANGED" and arg1 ~= "player" then return end
     if event == "PLAYER_ENTERING_WORLD" then allMaps = nil; ns:ResetPlaceCache() end
     if event == "PLAYER_LEVEL_UP" then ns:InvalidateRewards() end
+    if event == "QUEST_TURNED_IN" or event == "QUEST_ACCEPTED" or event == "QUEST_REMOVED"
+        or event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_LEVEL_UP" then
+        C_Timer.After(1, function() ns:InvalidateZoneProgress(); if RequestRefresh then RequestRefresh() end end)
+    end
     RequestRefresh(true)
 end)
 
@@ -1453,7 +1547,8 @@ SlashCmdList.READYQUESTS = function(msg)
     elseif msg:match("^tab") then
         local arg = strtrim(msg:sub(4))
         local alias = { ready = "ready", prontas = "ready", progress = "progress", active = "progress",
-            andamento = "progress", zone = "zone", zona = "zone", all = "all", todas = "all" }
+            andamento = "progress", zone = "zone", zona = "zone", all = "all", todas = "all",
+            zoneprog = "zoneprog", progresso = "zoneprog" }
         local key = alias[arg]
         if key then
             db.tab = key

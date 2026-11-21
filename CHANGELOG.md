@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## 2.8.0
+- New **Progress** tab: how many of your current zone's quests you have done (e.g. `Wetlands: 12 of 100 (12%)`), with the quests still **available**, the ones **missing a requirement** and the **completed** ones. Uses Questie's Journey "Quests by Zone" data, so the numbers match Questie. Click an available quest to go to its quest giver (Shortest Path Forever / TomTom).
+
 ## 2.7.1
 - Dungeon quests show whether the turn-in is **Inside** or **Outside** the dungeon (tag and tooltip). Uses Forever Dungeon Journal's quest data when installed (it knows NPCs the map places at the entrance), otherwise the map at the turn-in spot.
 
