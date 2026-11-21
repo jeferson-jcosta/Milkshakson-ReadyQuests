@@ -170,13 +170,30 @@ end
 -- objective area otherwise). Scans the player's own map first (also inside a
 -- dungeon), then every zone, then dungeon/cave maps, and stops as soon as
 -- every quest in the log has a location.
+-- The zone a quest-log header stands for: a zone name, or a dungeon/cave
+-- name (its zone is the dungeon's parent zone).
+local headerZoneCache = {}
+local function HeaderZone(name)
+    if type(name) ~= "string" then return nil end
+    local z = headerZoneCache[name]
+    if z ~= nil then return z or nil end
+    z = false
+    for _, m in ipairs(AllMaps()) do
+        if MapName(m) == name then z = ZoneOf(m) or m; break end
+    end
+    headerZoneCache[name] = z
+    return z or nil
+end
+
 local function RebuildPOIs()
     wipe(poiCache)
-    local wanted, missing = {}, 0
+    local wanted, missing, header = {}, 0, nil
     for i = 1, C_QuestLog.GetNumQuestLogEntries() do
         local info = C_QuestLog.GetInfo(i)
-        if info and not info.isHeader and info.questID and info.questID > 0 then
-            wanted[info.questID] = true
+        if info and info.isHeader then
+            header = info.title
+        elseif info and info.questID and info.questID > 0 then
+            wanted[info.questID] = header or true
             missing = missing + 1
         end
     end
@@ -195,6 +212,13 @@ local function RebuildPOIs()
                 local id = poi.questID
                 if id and wanted[id] and not poiCache[id] and poi.x and poi.y then
                     local om, ox, oy = OwnerZone(m, poi.x, poi.y)
+                    -- Near a border the continent can answer the wrong zone
+                    -- (Uldaman's entrance, Badlands, came out as Loch Modan).
+                    -- The quest log header settles it when it names one of them.
+                    if om ~= m then
+                        local hz = HeaderZone(wanted[id])
+                        if hz == ZoneOf(m) then om, ox, oy = m, poi.x, poi.y end
+                    end
                     poiCache[id] = { map = om, x = ox, y = oy, listedOn = m }
                     missing = missing - 1
                 end
@@ -1513,7 +1537,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
         return
     end
     if event == "UNIT_QUEST_LOG_CHANGED" and arg1 ~= "player" then return end
-    if event == "PLAYER_ENTERING_WORLD" then allMaps = nil; ns:ResetPlaceCache() end
+    if event == "PLAYER_ENTERING_WORLD" then allMaps = nil; wipe(headerZoneCache); ns:ResetPlaceCache() end
     if event == "PLAYER_LEVEL_UP" then ns:InvalidateRewards() end
     RequestRefresh(true)
 end)

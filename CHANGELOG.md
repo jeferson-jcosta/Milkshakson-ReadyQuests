@@ -1,6 +1,7 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
+- Fix: Uldaman quests (turn-in at the entrance, north Badlands) were grouped under Loch Modan. Near a zone border the quest log header now decides between the map that lists the quest and the zone the continent map points to.
 - Tooltip: the money reward is labelled "Money" / "Dinheiro" instead of "Gold" / "Ouro" (it can be silver or copper).
 
 ## 2.8.0
