@@ -4,7 +4,7 @@
 ## Notes: Quest tracker with tabs: ready to turn in, in progress, current zone and the whole log.
 ## Notes-ptBR: Tracker de quests com abas: prontas para entregar, em andamento, zona atual e o log inteiro.
 ## Author: JJC
-## Version: 2.8.0
+## Version: 2.9.0
 ## OptionalDeps: ShortestPathForever, TomTom, Pawn, GearQuestForever, Questie, QuestieDB, ForeverDungeonJournal
 ## IconTexture: Interface\GossipFrame\ActiveQuestIcon
 ## SavedVariables: ReadyQuestsDB

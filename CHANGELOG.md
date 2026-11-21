@@ -1,6 +1,6 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.9.0
 - Quests with a usable item (torch, bottle, etc.) get a button on the right of their row to use it, with cooldown and charges, like the game's tracker. In combat the list keeps its layout while these buttons are shown (changes apply when combat ends), and scrolling/dragging waits for the end of combat.
 - Distance and travel time on quest rows are now optional (Options > List, off by default); always in the tooltip, sorting unchanged.
 - Resizing by the corner keeps the height you set (the window no longer shrinks back to the list), and the window stays pinned by its top-left corner, so it no longer re-centres vertically. Option "Shrink the window to fit the list" brings the old behaviour back.
