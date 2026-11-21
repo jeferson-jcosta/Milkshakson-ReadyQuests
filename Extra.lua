@@ -85,40 +85,102 @@ local function FromQuestLine(questID)
     end
 end
 
+-- Questie marks many chains only backwards (the next step lists this one as
+-- its prerequisite, nextQuestInChain stays empty). Reverse index
+-- prerequisite -> follow-up quests, built once in small slices.
+local followUps, followBuilding
+
+local function PreOf(db, id)
+    local pre = Q(db, id, "preQuestSingle")
+    if type(pre) == "number" then return pre > 0 and pre or nil end
+    if type(pre) == "table" and #pre == 1 then return pre[1] end
+end
+
+local function BuildFollowUps(db, onDone)
+    if followUps or followBuilding then return end
+    local ptrs = db.QuestPointers
+    if type(ptrs) ~= "table" then return end
+    followBuilding = true
+    local ids = {}
+    for k, v in pairs(ptrs) do ids[#ids + 1] = type(k) == "number" and k or v end
+    local map, i = {}, 1
+    local function slice()
+        local stop = math.min(i + 499, #ids)
+        for n = i, stop do
+            local id = ids[n]
+            local p = type(id) == "number" and PreOf(db, id)
+            if p then
+                local t = map[p]
+                if not t then t = {}; map[p] = t end
+                t[#t + 1] = id
+            end
+        end
+        i = stop + 1
+        if i <= #ids then
+            C_Timer.After(0, slice)
+        else
+            followUps, followBuilding = map, false
+            C_Timer.After(0, onDone)
+        end
+    end
+    slice()
+end
+
+local function NextOf(db, id)
+    local n = Q(db, id, "nextQuestInChain")
+    if type(n) == "number" and n > 0 then return n end
+    local f = followUps and followUps[id]
+    if f and #f == 1 then return f[1] end
+    -- branching follow-ups: still a chain, but no single next step
+    if f and #f > 1 then return nil, true end
+end
+
 local function FromQuestie(questID)
     local db = QuestieDB()
     if not db then return nil end
-    local nextID = Q(db, questID, "nextQuestInChain")
-    if type(nextID) ~= "number" or nextID <= 0 then nextID = nil end
+    local nextID, branches = NextOf(db, questID)
 
     -- Steps after this one
-    local after, id, seen = 0, nextID, { [questID] = true }
+    local after, id, seen = (branches and 1 or 0), nextID, { [questID] = true }
     while id and after < 40 and not seen[id] do
         seen[id] = true
         after = after + 1
-        local n = Q(db, id, "nextQuestInChain")
-        id = (type(n) == "number" and n > 0) and n or nil
+        local n, more = NextOf(db, id)
+        if more then after = after + 1 end
+        id = n
     end
     -- Steps before this one (single prerequisite chains)
     local before, cur = 0, questID
     while before < 40 do
-        local pre = Q(db, cur, "preQuestSingle")
-        local p = type(pre) == "table" and pre[1] or (type(pre) == "number" and pre or nil)
-        if not p or p <= 0 or seen[p] then break end
+        local p = PreOf(db, cur)
+        if not p or seen[p] then break end
         seen[p] = true
         before = before + 1
         cur = p
     end
     if after == 0 and before == 0 then return nil end
     local nextName = nextID and (Q(db, nextID, "name") or C_QuestLog.GetTitleForQuestID(nextID))
-    return { pos = before + 1, total = before + 1 + after, nextID = nextID, nextName = nextName }
+    return { pos = before + 1, total = before + 1 + after, nextID = nextID, nextName = nextName, source = "questie" }
+end
+
+local function FromQuestLineTagged(questID)
+    local c = FromQuestLine(questID)
+    if c then c.source = "questline" end
+    return c
 end
 
 -- Returns { pos, total, nextID, nextName, name } or false
 function ns:GetChain(questID)
     local c = chainCache[questID]
     if c ~= nil then return c end
-    c = FromQuestLine(questID) or FromQuestie(questID) or false
+    local qdb = QuestieDB()
+    if qdb and not followUps then
+        -- Questie still loading or index not built yet: answer without
+        -- caching, and refresh once the follow-up index is ready.
+        BuildFollowUps(qdb, function() wipe(chainCache); if ns.Refresh then ns.Refresh() end end)
+        return FromQuestLineTagged(questID) or FromQuestie(questID) or false
+    end
+    c = FromQuestLineTagged(questID) or FromQuestie(questID) or false
     if c and c.nextID and not c.nextName then
         c.nextName = C_QuestLog.GetTitleForQuestID(c.nextID)
     end

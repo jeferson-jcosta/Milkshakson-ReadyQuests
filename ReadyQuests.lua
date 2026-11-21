@@ -1561,10 +1561,11 @@ SlashCmdList.READYQUESTS = function(msg)
         local groups = GetQuests("all")
         for _, g in ipairs(groups) do
             for _, q in ipairs(g.quests) do
-                print(("  [%s] #%d %s | header=%s | map=%s %s (listed on %s) EJ=%s | place=%s | here=%s inst=%s | dist=%s"):format(
+                print(("  [%s] #%d %s | header=%s | map=%s %s (listed on %s) EJ=%s | place=%s | here=%s inst=%s | dist=%s | chain=%s"):format(
                     g.title, q.id, q.title, tostring(q.header), tostring(q.map), tostring(MapName(q.map)), tostring(poiCache[q.id] and poiCache[q.id].listedOn),
                     tostring(EJInstance(q.map)), tostring(q.placeName), tostring(q.here), tostring(q.inInstance),
-                    q.dist and ("%.0f"):format(q.dist) or "nil"))
+                    q.dist and ("%.0f"):format(q.dist) or "nil",
+                    q.chain and (q.chain.pos .. "/" .. q.chain.total .. " " .. tostring(q.chain.source)) or "-"))
             end
         end
         groups = GetReadyQuests()

@@ -1,5 +1,9 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Fix: the chain tag was missing on quests Questie links only backwards (the next step lists this quest as its prerequisite), e.g. the first step of a chain, still in progress. A reverse index is built once in the background.
+- `/rq debug` shows the chain and where it came from for every quest.
+
 ## 2.7.2
 - Fix: quests whose turn-in is in a neighbouring zone were grouped under the wrong zone (e.g. Theramore quests under The Barrens). The POI now goes to the zone it actually sits in.
 - `/rq debug` shows which map listed each quest.
