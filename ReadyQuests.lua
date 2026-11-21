@@ -6,7 +6,9 @@ local ADDON, ns = ...
 local L = ns.L
 local PREFIX = "|cff33ff99[ReadyQuests]|r "
 local ROW_H, HEADER_H, OBJ_H, WIDTH = 18, 18, 14, 300
-local TOP = 48 -- header + tab bar
+local TOP_BASE = 48 -- header + tab bar
+local SEARCH_H = 20
+local TOP = TOP_BASE -- + search box when shown (set in Refresh)
 local OWNER = "ReadyQuests"
 
 local db
@@ -353,7 +355,22 @@ local function byDist(a, b)
     return a.title < b.title
 end
 
+-- Search: words typed in the search box, all must appear in the quest's
+-- title, objectives or zone/header (case-insensitive).
+local searchText = ""
+local function Matches(q)
+    if searchText == "" then return true end
+    local hay = { q.title or "", q.header or "", type(q.group) == "string" and q.group or "" }
+    for _, o in ipairs(q.objectives or {}) do hay[#hay + 1] = o.text or "" end
+    hay = table.concat(hay, "\n"):lower()
+    for word in searchText:gmatch("%S+") do
+        if not hay:find(word, 1, true) then return false end
+    end
+    return true
+end
+
 local function InTab(q, tab)
+    if not Matches(q) then return false end
     if tab == "ready" then return q.ready end
     if tab == "progress" then return not q.ready end
     if tab == "zone" then return q.here end
@@ -363,7 +380,7 @@ end
 -- Groups the quests of one tab. Returns groups, count, pmap, px, py, counts (per tab).
 local function GetQuests(tab)
     local list, pmap, px, py, pzone = CollectQuests()
-    local counts = { ready = 0, progress = 0, zone = 0, all = 0 }
+    local counts = { ready = 0, progress = 0, zone = 0, all = 0, raw = #list }
     for _, q in ipairs(list) do
         for _, t in ipairs(ns.TABS) do
             if InTab(q, t) then counts[t] = counts[t] + 1 end
@@ -952,6 +969,57 @@ end
 
 local empty = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 empty:SetPoint("TOPLEFT", 10, -(TOP + 4))
+
+-- Search box (below the tabs) ----------------------------------------------
+local okSearch, search = pcall(CreateFrame, "EditBox", "ReadyQuestsSearchBox", frame, "SearchBoxTemplate")
+if not okSearch or not search then
+    search = CreateFrame("EditBox", "ReadyQuestsSearchBox", frame, "InputBoxTemplate")
+end
+search:SetHeight(18)
+search:SetPoint("TOPLEFT", 12, -(TOP_BASE + 1))
+search:SetPoint("TOPRIGHT", -10, -(TOP_BASE + 1))
+search:SetAutoFocus(false)
+search:SetMaxLetters(60)
+if type(search.Instructions) == "table" and search.Instructions.SetText then search.Instructions:SetText(L.SEARCH_HINT) end
+search:HookScript("OnTextChanged", function(self)
+    local t = strtrim((self:GetText() or ""):lower())
+    if t ~= searchText then
+        searchText = t
+        if ns.Refresh then ns.Refresh() end
+    end
+end)
+-- Hidden until opened with the magnifier button; closes when cleared.
+local searchOpen = false
+local function SetSearchOpen(open)
+    searchOpen = open and true or false
+    if not searchOpen then
+        searchText = ""
+        if search:GetText() ~= "" then search:SetText("") end
+        search:ClearFocus()
+    end
+    if ns.Refresh then ns.Refresh() end
+    if searchOpen then search:SetFocus() end
+end
+search:SetScript("OnEscapePressed", function() SetSearchOpen(false) end)
+search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+search:HookScript("OnEditFocusLost", function(self)
+    if strtrim(self:GetText() or "") == "" and searchOpen then SetSearchOpen(false) end
+end)
+
+local searchBtn = CreateFrame("Button", nil, frame)
+searchBtn:SetSize(16, 16)
+local sicon = searchBtn:CreateTexture(nil, "ARTWORK")
+sicon:SetAllPoints()
+sicon:SetTexture("Interface\\Common\\UI-Searchbox-Icon")
+searchBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+searchBtn:SetScript("OnClick", function() SetSearchOpen(not searchOpen) end)
+searchBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(L.SEARCH_HINT)
+    GameTooltip:AddLine(L.SEARCH_TIP, 1, 1, 1, true)
+    GameTooltip:Show()
+end)
+searchBtn:SetScript("OnLeave", GameTooltip_Hide)
 
 -- Scrollable list area (mouse wheel) -------------------------------------
 local scroll = CreateFrame("ScrollFrame", nil, frame)
@@ -1634,6 +1702,12 @@ end
 function Refresh()
     if not db then return end
     if not tContains(ns.TABS, db.tab) then db.tab = "ready" end
+    local newTop = TOP_BASE + ((searchOpen and not db.collapsedWindow) and SEARCH_H or 0)
+    if newTop ~= TOP then
+        TOP = newTop
+        scroll:SetPoint("TOPLEFT", 6, -TOP)
+        empty:SetPoint("TOPLEFT", 10, -(TOP + 4))
+    end
     local groups, total, counts = QuestsForTab()
     local sig = LayoutSignature(groups)
     if UseButtonsLocked() and sig ~= layoutSig then
@@ -1661,7 +1735,7 @@ function Refresh()
     end
     header:SetText(text)
     UpdateTabs(counts)
-    empty:SetText(L["EMPTY_" .. db.tab:upper()])
+    empty:SetText(searchText ~= "" and L.SEARCH_EMPTY or L["EMPTY_" .. db.tab:upper()])
     empty:SetShown(total == 0)
     routeBtn:SetText(L.ROUTE_BTN)
     routeBtn:SetShown(db.tab == "ready" and total > 0 and SPF() ~= nil)
@@ -1672,6 +1746,8 @@ function Refresh()
     shareBtn:ClearAllPoints()
     shareBtn:SetPoint("RIGHT", routeBtn:IsShown() and routeBtn or close, "LEFT", -2, 0)
     shareBtn:SetShown(InDungeonGroup())
+    searchBtn:ClearAllPoints()
+    searchBtn:SetPoint("RIGHT", (shareBtn:IsShown() and shareBtn) or (routeBtn:IsShown() and routeBtn) or close, "LEFT", -3, 0)
 
     local i, y = 0, 0
     for _, g in ipairs(groups) do
@@ -1705,6 +1781,9 @@ function Refresh()
     UpdateCollapseButton()
     tabBar:SetShown(not collapsed)
     scroll:SetShown(not collapsed)
+    search:SetShown(searchOpen and not collapsed)
+    searchBtn:SetShown(not collapsed)
+    sicon:SetVertexColor(1, searchText ~= "" and 0.82 or 1, searchText ~= "" and 0 or 1) -- yellow while filtering
     if collapsed then empty:Hide() end
     grip:SetShown(not db.lockSize and not collapsed)
     if not sizing then
@@ -1722,7 +1801,7 @@ function Refresh()
     end
     ClampScroll()
 
-    local visible = db.shown and not (db.autoHide and counts.all == 0)
+    local visible = db.shown and not (db.autoHide and (counts.raw or counts.all) == 0)
     frame:SetShown(visible)
     ApplyTrackerHiding()
     UpdateDock()
