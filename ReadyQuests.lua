@@ -13,7 +13,7 @@ local db
 local defaults = { shown = true, locked = false, autoHide = true, point = nil, locale = nil,
     width = WIDTH, maxHeight = 400, showRewards = true, showPlace = true, showChain = true,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
-    hideQuestie = false, hideBlizzard = false }
+    hideQuestie = false, hideBlizzard = false, collapsedWindow = false }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
 
 ---------------------------------------------------------------------------
@@ -555,7 +555,31 @@ frame:SetScript("OnDragStop", function(self)
 end)
 
 local header = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-header:SetPoint("TOPLEFT", 8, -7)
+header:SetPoint("TOPLEFT", 24, -7)
+
+-- Collapse / expand button (like Questie's tracker): keeps only the title bar.
+local Refresh
+local collapseBtn = CreateFrame("Button", nil, frame)
+collapseBtn:SetSize(14, 14)
+collapseBtn:SetPoint("TOPLEFT", 7, -6)
+local function UpdateCollapseButton()
+    local tex = db and db.collapsedWindow and "Interface\\Buttons\\UI-PlusButton-" or "Interface\\Buttons\\UI-MinusButton-"
+    collapseBtn:SetNormalTexture(tex .. "Up")
+    collapseBtn:SetPushedTexture(tex .. "Down")
+    collapseBtn:SetHighlightTexture("Interface\\Buttons\\UI-PlusButton-Hilight", "ADD")
+end
+local function ToggleCollapsed()
+    db.collapsedWindow = not db.collapsedWindow
+    Refresh()
+end
+ns.ToggleCollapsed = function() ToggleCollapsed() end
+collapseBtn:SetScript("OnClick", ToggleCollapsed)
+collapseBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(db.collapsedWindow and L.EXPAND or L.COLLAPSE)
+    GameTooltip:Show()
+end)
+collapseBtn:SetScript("OnLeave", GameTooltip_Hide)
 
 local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
 close:SetSize(20, 20)
@@ -582,7 +606,6 @@ end)
 routeBtn:SetScript("OnLeave", GameTooltip_Hide)
 
 -- Tab bar ------------------------------------------------------------------
-local Refresh
 local tabs = {}
 local TAB_LABEL = { ready = "TAB_READY", progress = "TAB_PROGRESS", zone = "TAB_ZONE", all = "TAB_ALL" }
 local TAB_TIP = { ready = "TAB_READY_TIP", progress = "TAB_PROGRESS_TIP", zone = "TAB_ZONE_TIP", all = "TAB_ALL_TIP" }
@@ -1224,11 +1247,20 @@ function Refresh()
     end
 
     content:SetHeight(math.max(-y, 1))
-    grip:SetShown(not db.locked)
+    local collapsed = db.collapsedWindow
+    UpdateCollapseButton()
+    tabBar:SetShown(not collapsed)
+    scroll:SetShown(not collapsed)
+    if collapsed then empty:Hide() end
+    grip:SetShown(not db.locked and not collapsed)
     if not sizing then
         frame:SetWidth(db.width)
-        local wanted = total == 0 and (TOP + ROW_H + 8) or (TOP - y + 8)
-        frame:SetHeight(math.max(MIN_H, math.min(wanted, db.maxHeight)))
+        if collapsed then
+            frame:SetHeight(26)
+        else
+            local wanted = total == 0 and (TOP + ROW_H + 8) or (TOP - y + 8)
+            frame:SetHeight(math.max(MIN_H, math.min(wanted, db.maxHeight)))
+        end
     end
     ClampScroll()
 
@@ -1334,6 +1366,8 @@ SlashCmdList.READYQUESTS = function(msg)
         db.locked = not db.locked
         print(PREFIX .. (db.locked and L.LOCKED or L.UNLOCKED))
         Refresh()
+    elseif msg == "min" or msg == "collapse" or msg == "recolher" then
+        ToggleCollapsed()
     elseif msg == "auto" then
         db.autoHide = not db.autoHide
         print(PREFIX .. L.AUTOHIDE:format(db.autoHide and L.ON or L.OFF))
@@ -1452,6 +1486,7 @@ SlashCmdList.READYQUESTS = function(msg)
         print(PREFIX .. L.HELP2)
         print(PREFIX .. L.HELP4)
         print(PREFIX .. L.HELP_TAB)
+        print(PREFIX .. L.HELP_MIN)
         print(PREFIX .. L.HELP_CONFIG)
         print(PREFIX .. L.HELP3:format(table.concat(ns:AvailableLocales(), ", ")))
     else

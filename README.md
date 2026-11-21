@@ -17,6 +17,7 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 | `/rq reset` | Reset window position and size |
 | `/rq lang <code\|auto>` | Set language (e.g. `/rq lang ptbr`, `/rq lang enus`, `/rq lang auto`) |
 
+| `/rq min` | Collapse/expand the window (also the +/- button at its top-left) |
 | `/rq tab <ready\|active\|zone\|all>` | Switch tab (also `prontas`, `andamento`, `zona`, `todas`) |
 | `/rq route` | Plan one journey through every turn-in (Shortest Path Forever) |
 | `/rq route here` | Same, only turn-ins on the current map |

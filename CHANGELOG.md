@@ -9,6 +9,9 @@
 - Options to hide Questie's tracker and the game's quest tracker while the window is shown.
 - "Hide when empty" now means an empty quest log.
 - `/rq tab ready|active|zone|all`.
+- Collapse/expand button (+/-) like Questie's tracker; `/rq min`.
+- Inside dungeons, distances are measured from where you entered, so the list keeps its order.
+- The All tab shows quests/log size (e.g. 28/40).
 
 ## 2.6.2
 - `/mrq debug` shows the saved options.
