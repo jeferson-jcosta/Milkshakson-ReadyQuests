@@ -28,7 +28,7 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 - **Right-click**: open the quest on the map.
 - **Shift-click**: insert the quest link in chat.
 - **Route** button (left-click: all quests, right-click: this map only): one journey with nearest-first stops. Quests turned in at the same spot become one stop.
-- Drag to move. Drag the bottom-right corner to resize: the width is kept, and the height becomes the maximum. The window shrinks to fit the list, and the mouse wheel scrolls when the list is longer. `/rq lock size` (or the "Lock size" option) hides the grip; `/rq lock` only locks the position.
+- Drag to move. Drag the bottom-right corner to resize: the window keeps the width and height you set (the option "Shrink the window to fit the list" makes it shrink to the list again, up to that height). The window is pinned by its top-left corner. The mouse wheel scrolls when the list is longer. `/rq lock size` (or the "Lock size" option) hides the grip; `/rq lock` only locks the position.
 
 ## Tabs
 - **Ready**: quests ready to turn in, easiest turn-in first (distance, travel time, rewards).

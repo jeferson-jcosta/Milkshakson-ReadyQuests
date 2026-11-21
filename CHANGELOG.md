@@ -1,6 +1,7 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
+- Resizing by the corner keeps the height you set (the window no longer shrinks back to the list), and the window stays pinned by its top-left corner, so it no longer re-centres vertically. Option "Shrink the window to fit the list" brings the old behaviour back.
 - **Lock size** is a separate option (and `/rq lock size`): "Lock position" no longer hides the resize grip. Existing settings keep their behaviour (a locked window starts with its size locked too).
 - Inside a dungeon, in a group: **Share** button in the window. Left-click shares this dungeon's quests, right-click every quest that can be shared (one per second). Also `/rq share` and `/rq share all`.
 - Right-click menu: **Share with party** is always listed. When it can't be used it is greyed out with the reason (not in a group / the game says the quest can't be shared). Works with both the modern and the classic quest log API; prints a confirmation.

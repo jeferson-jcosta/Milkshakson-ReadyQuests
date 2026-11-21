@@ -11,7 +11,7 @@ local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, showRewards = true, showPlace = true, showChain = true,
+    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
@@ -676,10 +676,21 @@ local function HomePoint()
     end
 end
 
+-- Keep the window pinned by its top-left corner, so a height change (resize,
+-- list growing or shrinking) never moves the top of the window.
+local function PinTopLeft()
+    local s = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    local left, top = frame:GetLeft(), frame:GetTop()
+    if not (left and top) then return end
+    frame:ClearAllPoints()
+    frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    if db then db.point = { "TOPLEFT", "BOTTOMLEFT", left, top } end
+end
+ns.PinTopLeft = PinTopLeft
+
 frame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
-    local p, _, rp, x, y = self:GetPoint()
-    db.point = { p, rp, x, y }
+    PinTopLeft()
     if dock.active then dock.active, dock.userMoved = false, true end
 end)
 
@@ -1512,7 +1523,11 @@ function Refresh()
             frame:SetHeight(26)
         else
             local wanted = total == 0 and (TOP + ROW_H + 8) or (TOP - y + 8)
-            frame:SetHeight(math.max(MIN_H, math.min(wanted, db.maxHeight)))
+            if db.fitHeight then
+                frame:SetHeight(math.max(MIN_H, math.min(wanted, db.maxHeight)))
+            else
+                frame:SetHeight(math.max(MIN_H, db.maxHeight)) -- the height you set
+            end
         end
     end
     ClampScroll()
@@ -1521,6 +1536,8 @@ function Refresh()
     frame:SetShown(visible)
     ApplyTrackerHiding()
     UpdateDock()
+    -- older saved positions (or the default) anchor by the middle: re-pin once
+    if visible and not dock.active and not (db.point and db.point[1] == "TOPLEFT") then PinTopLeft() end
 end
 
 ns.Refresh = function() Refresh() end
@@ -1536,6 +1553,8 @@ grip:SetScript("OnMouseUp", function()
     sizing = false
     db.width = math.floor(frame:GetWidth() + 0.5)
     db.maxHeight = math.floor(frame:GetHeight() + 0.5)
+    db.fitHeight = false -- keep the height you dragged to
+    PinTopLeft()
     Refresh()
 end)
 
@@ -1632,7 +1651,7 @@ SlashCmdList.READYQUESTS = function(msg)
         Refresh()
     elseif msg == "reset" then
         db.point = nil
-        db.width, db.maxHeight = WIDTH, 400
+        db.width, db.maxHeight, db.fitHeight = WIDTH, 400, true
         dock.active, dock.userMoved = false, false
         HomePoint()
         UpdateDock()
