@@ -307,7 +307,7 @@ local function CollectQuests()
                 q.eta = TravelSeconds(q, pmap, px, py)
                 q.rewards = ns:GetRewards(id)
                 q.place, q.placeName = ns:GetPlace(q.map, q.x, q.y)
-                q.chain = ns:GetChain(id)
+                q.chain = ns:GetChain(id, q.map or pmap)
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
                 q.side, q.sideText = ns:GetTurnInSide(q)
                 if InCurrentInstance(inst, q, zname) then
@@ -902,6 +902,7 @@ local rows = {}
 ---------------------------------------------------------------------------
 local ICON_GOLD = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12|t"
 local ICON_UP = "|TInterface\\Buttons\\UI-MicroStream-Green:12:12|t"
+local ICON_CHAIN = "|TInterface\\AddOns\\Milkshakson-ReadyQuests\\Media\\Chain:13:13|t"
 
 local function Icon(tex) return tex and ("|T%s:13:13|t"):format(tex) or "" end
 
@@ -925,7 +926,9 @@ local function RewardTags(q, xpState)
         t[#t + 1] = "|cffa335ee[" .. name .. "]|r"
     end
     if db.showChain and q.chain then
-        t[#t + 1] = "|cffffcc00" .. L.TAG_CHAIN:format(q.chain.pos, q.chain.total) .. "|r"
+        local c = q.chain
+        local known = c.source ~= "learned"
+        t[#t + 1] = ICON_CHAIN .. "|cffffcc00" .. (known and ("%d/%d"):format(c.pos, c.total) or tostring(c.pos)) .. "|r"
     end
     local r = q.rewards
     if not r or not db.showRewards then return table.concat(t, " ") end
@@ -1116,10 +1119,16 @@ local function Row_OnEnter(self)
         GameTooltip:AddLine(L.QTYPE_LINE:format(q.qtypeName or q.qtype), 0.75, 0.45, 1)
     end
     if q.chain then
-        GameTooltip:AddLine(L.CHAIN_POS:format(q.chain.pos, q.chain.total) .. (q.chain.name and (" - " .. q.chain.name) or ""), 1, 0.8, 0)
+        local c = q.chain
+        local pos = c.source ~= "learned" and L.CHAIN_POS:format(c.pos, c.total) or L.CHAIN_STEP:format(c.pos)
+        GameTooltip:AddLine(pos .. (c.name and (" - " .. c.name) or ""), 1, 0.8, 0)
+        if c.prevID and C_QuestLog.GetTitleForQuestID then
+            local pt = C_QuestLog.GetTitleForQuestID(c.prevID)
+            if pt then GameTooltip:AddLine(L.CHAIN_PREV:format(pt), 0.8, 0.8, 0.8, true) end
+        end
         if q.chain.nextID then
             GameTooltip:AddLine(L.CHAIN_NEXT:format(q.chain.nextName or ("#" .. q.chain.nextID)), 1, 1, 1, true)
-        else
+        elseif q.chain.source ~= "learned" then
             GameTooltip:AddLine(L.CHAIN_LAST, 0.7, 0.7, 0.7)
         end
     end
@@ -1622,10 +1631,11 @@ SlashCmdList.READYQUESTS = function(msg)
         local groups = GetQuests("all")
         for _, g in ipairs(groups) do
             for _, q in ipairs(g.quests) do
-                print(("  [%s] #%d %s | header=%s | map=%s %s (listed on %s) EJ=%s | place=%s | here=%s inst=%s | dist=%s"):format(
+                print(("  [%s] #%d %s | header=%s | map=%s %s (listed on %s) EJ=%s | place=%s | here=%s inst=%s | dist=%s | chain=%s"):format(
                     g.title, q.id, q.title, tostring(q.header), tostring(q.map), tostring(MapName(q.map)), tostring(poiCache[q.id] and poiCache[q.id].listedOn),
                     tostring(EJInstance(q.map)), tostring(q.placeName), tostring(q.here), tostring(q.inInstance),
-                    q.dist and ("%.0f"):format(q.dist) or "nil"))
+                    q.dist and ("%.0f"):format(q.dist) or "nil",
+                    q.chain and (q.chain.pos .. "/" .. q.chain.total .. " " .. tostring(q.chain.source)) or "-"))
             end
         end
         groups = GetReadyQuests()

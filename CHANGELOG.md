@@ -1,7 +1,10 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.8.0
 - Right-click menu: **Ask for help** on quests in progress. Posts the quest link and the objectives still missing in party/raid, any chat channel you joined (General, LookingForGroup...) or /say. 30 s cooldown per channel.
+- Quest chains no longer use Questie. Sources: the game's quest lines (now asked with the quest's map), Forever Dungeon Journal's chains when that addon is installed (optional), and links learned while you play (the same NPC offers or gives you a quest right after you turn one in; kept per account).
+- Chain shown with an icon instead of the word: icon + "2/5" when the whole chain is known, icon + "3" (step) for learned chains. Tooltip: step, "Comes after" / "Next".
+- `/rq debug` shows the chain and its source (questline / fdj / learned) for every quest.
 
 ## 2.7.2
 - Fix: quests whose turn-in is in a neighbouring zone were grouped under the wrong zone (e.g. Theramore quests under The Barrens). The POI now goes to the zone it actually sits in.

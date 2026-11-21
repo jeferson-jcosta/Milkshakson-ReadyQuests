@@ -49,9 +49,9 @@ Options > AddOns > **Milkshakson > Ready Quests**, or `/mrq config` (also `/rq c
 |---|---|
 | `Dungeon` (orange) | The turn-in spot is inside an instance |
 | `Cave` (tan) | The turn-in spot is inside a cave or a building interior |
-| `Chain 2/4` (yellow) | The quest is step 2 of a 4-step chain; the tooltip names the next quest |
+| chain icon + `2/4` | The quest is step 2 of a 4-step chain (just `3` = step 3, length unknown); the tooltip names the previous and next quest |
 
-The place comes from the map at the turn-in spot. Chains come from the game's quest lines, or from Questie's database (`nextQuestInChain` / `preQuestSingle`) when Questie is installed.
+The place comes from the map at the turn-in spot. Chains come from the game's quest lines, from Forever Dungeon Journal's chains when it is installed, and from what you play: when an NPC gives you a quest right after you turn one in to it, the two are linked (remembered for all your characters). Questie is not used.
 
 ## Reward indicators
 Each row shows compact tags:

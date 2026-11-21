@@ -56,75 +56,191 @@ function ns:GetPlace(map, x, y)
 end
 
 ---------------------------------------------------------------------------
--- Quest chains (Blizzard quest lines first, then Questie's database)
+-- Quest chains: one quest leads to another. Game API only:
+--  1. the game's quest lines (C_QuestLine), when it has one for the quest;
+--  2. Forever Dungeon Journal's chain data, when that addon is installed;
+--  3. links learned while playing: you turn a quest in and the same NPC
+--     offers / gives you the next one. Kept in ReadyQuestsDB.chainLinks
+--     (account-wide), so every character benefits.
 ---------------------------------------------------------------------------
 local chainCache = {}
 
-local function QuestieDB()
-    local QL = _G.QuestieLoader
-    if not (QL and QL.ImportModule) then return nil end
-    local ok, db = pcall(QL.ImportModule, QL, "QuestieDB")
-    if ok and type(db) == "table" and db.QueryQuestSingle then return db end
-end
-
-local function Q(db, id, key)
-    local ok, v = pcall(db.QueryQuestSingle, id, key)
-    if ok then return v end
-end
-
-local function FromQuestLine(questID)
+local function FromQuestLine(questID, mapID)
     if not (C_QuestLine and C_QuestLine.GetQuestLineInfo and C_QuestLine.GetQuestLineQuests) then return nil end
-    local ok, info = pcall(C_QuestLine.GetQuestLineInfo, questID)
+    local ok, info = pcall(C_QuestLine.GetQuestLineInfo, questID, mapID)
     if not (ok and type(info) == "table" and info.questLineID) then return nil end
     local ok2, quests = pcall(C_QuestLine.GetQuestLineQuests, info.questLineID)
     if not (ok2 and type(quests) == "table" and #quests > 1) then return nil end
     for i, id in ipairs(quests) do
         if id == questID then
-            return { name = info.questLineName, pos = i, total = #quests, nextID = quests[i + 1] }
+            return { name = info.questLineName, pos = i, total = #quests, nextID = quests[i + 1], source = "questline" }
         end
     end
 end
 
-local function FromQuestie(questID)
-    local db = QuestieDB()
-    if not db then return nil end
-    local nextID = Q(db, questID, "nextQuestInChain")
-    if type(nextID) ~= "number" or nextID <= 0 then nextID = nil end
-
-    -- Steps after this one
-    local after, id, seen = 0, nextID, { [questID] = true }
-    while id and after < 40 and not seen[id] do
-        seen[id] = true
-        after = after + 1
-        local n = Q(db, id, "nextQuestInChain")
-        id = (type(n) == "number" and n > 0) and n or nil
+-- Forever Dungeon Journal (optional): its curated "required to unlock"
+-- chains, FDJ.QUEST_PREREQ_CHAINS[finalQuest] = { step, step, ... }.
+-- Steps of one choice (step.choice) count as one step, as FDJ shows them.
+local fdjIndex -- questID -> { chain, index }
+local function StepNumber(chain, index)
+    local n, last = 0, nil
+    for i = 1, math.min(index, #chain) do
+        local c = type(chain[i]) == "table" and chain[i].choice or nil
+        if c == nil or c ~= last then n = n + 1 end
+        last = c
     end
-    -- Steps before this one (single prerequisite chains)
-    local before, cur = 0, questID
+    return n
+end
+
+local function FDJIndex()
+    if fdjIndex then return fdjIndex end
+    local FDJ = _G.ForeverDungeonJournal_NS
+    local chains = FDJ and FDJ.QUEST_PREREQ_CHAINS
+    if type(chains) ~= "table" then return nil end
+    fdjIndex = {}
+    for finalID, steps in pairs(chains) do
+        if type(steps) == "table" and #steps > 0 then
+            local full = {}
+            for _, st in ipairs(steps) do
+                if type(st) == "table" and st.id then full[#full + 1] = st end
+            end
+            if #full > 0 and full[#full].id ~= finalID then full[#full + 1] = { id = finalID } end
+            for i, st in ipairs(full) do
+                local cur = fdjIndex[st.id]
+                -- a quest in several chains: keep the longest one
+                if not cur or #full > #cur.chain then fdjIndex[st.id] = { chain = full, index = i } end
+            end
+        end
+    end
+    return fdjIndex
+end
+
+local function FromFDJ(questID)
+    local idx = FDJIndex()
+    local e = idx and idx[questID]
+    if not e then return nil end
+    local chain, i = e.chain, e.index
+    local total = StepNumber(chain, #chain)
+    if total < 2 then return nil end
+    local pos = StepNumber(chain, i)
+    -- next step: first quest after this one's choice group
+    local nextStep
+    local myChoice = chain[i].choice
+    for k = i + 1, #chain do
+        if myChoice == nil or chain[k].choice ~= myChoice then nextStep = chain[k]; break end
+    end
+    return { pos = pos, total = total, nextID = nextStep and nextStep.id, nextName = nextStep and nextStep.name,
+        prevID = i > 1 and chain[i - 1].id or nil, source = "fdj" }
+end
+
+-- Learned links: chainLinks[prev] = { [next] = true, ... }
+local prevOf -- next -> prev, rebuilt from chainLinks
+local function Links()
+    local db = _G.ReadyQuestsDB
+    if not db then return nil end
+    db.chainLinks = db.chainLinks or {}
+    if not prevOf then
+        prevOf = {}
+        for prev, nexts in pairs(db.chainLinks) do
+            for nxt in pairs(nexts) do prevOf[nxt] = prevOf[nxt] or prev end
+        end
+    end
+    return db.chainLinks
+end
+
+local function Learn(prev, nxt)
+    local links = Links()
+    if not (links and prev and nxt and prev ~= nxt) then return end
+    if links[prev] and links[prev][nxt] then return end
+    links[prev] = links[prev] or {}
+    links[prev][nxt] = true
+    prevOf[nxt] = prevOf[nxt] or prev
+    wipe(chainCache)
+    if ns.Refresh then ns.Refresh() end
+end
+
+local function OnlyNext(links, id)
+    local t = links[id]
+    if not t then return nil, false end
+    local only, n = nil, 0
+    for nxt in pairs(t) do only, n = nxt, n + 1 end
+    return n == 1 and only or nil, true
+end
+
+local function FromLearned(questID)
+    local links = Links()
+    if not links then return nil end
+    local before, cur, seen = 0, questID, { [questID] = true }
     while before < 40 do
-        local pre = Q(db, cur, "preQuestSingle")
-        local p = type(pre) == "table" and pre[1] or (type(pre) == "number" and pre or nil)
-        if not p or p <= 0 or seen[p] then break end
+        local p = prevOf[cur]
+        if not p or seen[p] then break end
         seen[p] = true
         before = before + 1
         cur = p
     end
-    if after == 0 and before == 0 then return nil end
-    local nextName = nextID and (Q(db, nextID, "name") or C_QuestLog.GetTitleForQuestID(nextID))
-    return { pos = before + 1, total = before + 1 + after, nextID = nextID, nextName = nextName }
+    local nextID, hasNext = OnlyNext(links, questID)
+    if before == 0 and not hasNext then return nil end
+    local after, id = hasNext and 1 or 0, nextID
+    while id and after < 40 and not seen[id] do
+        seen[id] = true
+        local n, more = OnlyNext(links, id)
+        if not more then break end
+        after = after + 1
+        id = n
+    end
+    return {
+        pos = before + 1, total = before + 1 + after, nextID = nextID,
+        nextName = nextID and C_QuestLog.GetTitleForQuestID and C_QuestLog.GetTitleForQuestID(nextID) or nil,
+        prevID = prevOf[questID], source = "learned",
+    }
 end
 
--- Returns { pos, total, nextID, nextName, name } or false
-function ns:GetChain(questID)
+-- Returns { pos, total, nextID, nextName, name, source } or false
+function ns:GetChain(questID, mapID)
     local c = chainCache[questID]
     if c ~= nil then return c end
-    c = FromQuestLine(questID) or FromQuestie(questID) or false
-    if c and c.nextID and not c.nextName then
+    c = FromQuestLine(questID, mapID) or FromFDJ(questID) or FromLearned(questID) or false
+    if c and c.nextID and not c.nextName and C_QuestLog.GetTitleForQuestID then
         c.nextName = C_QuestLog.GetTitleForQuestID(c.nextID)
     end
     chainCache[questID] = c
     return c
 end
+
+-- Learning: remember the last turn-in and who took it; a quest offered or
+-- accepted from that same NPC right after is the next step.
+local LINK_WINDOW = 30
+local lastTurnIn -- { id, npc, t }
+local dialogNpc
+
+local function NpcGUID()
+    return UnitGUID and UnitGUID("npc") or nil
+end
+
+local function FromSameGiver(npc)
+    if not lastTurnIn or GetTime() - lastTurnIn.t > LINK_WINDOW then return false end
+    if lastTurnIn.npc and npc then return lastTurnIn.npc == npc end
+    -- no NPC on either side (auto-accepted follow-up): only right after
+    return GetTime() - lastTurnIn.t < 3
+end
+
+local learner = CreateFrame("Frame")
+for _, e in ipairs({ "QUEST_COMPLETE", "QUEST_TURNED_IN", "QUEST_DETAIL", "QUEST_ACCEPTED" }) do
+    pcall(learner.RegisterEvent, learner, e)
+end
+learner:SetScript("OnEvent", function(_, event, a, b)
+    if event == "QUEST_COMPLETE" then
+        dialogNpc = NpcGUID()
+    elseif event == "QUEST_TURNED_IN" then
+        lastTurnIn = { id = a, npc = NpcGUID() or dialogNpc, t = GetTime() }
+    elseif event == "QUEST_DETAIL" then
+        local id = GetQuestID and GetQuestID()
+        if id and id > 0 and lastTurnIn and FromSameGiver(NpcGUID()) then Learn(lastTurnIn.id, id) end
+    elseif event == "QUEST_ACCEPTED" then
+        local id = b or a -- classic: (logIndex, questID); modern: (questID)
+        if type(id) == "number" and lastTurnIn and FromSameGiver(NpcGUID()) then Learn(lastTurnIn.id, id) end
+    end
+end)
 
 ---------------------------------------------------------------------------
 -- Quest type (dungeon / raid / group ...), from the game's quest tags
