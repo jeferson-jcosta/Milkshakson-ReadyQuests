@@ -200,6 +200,31 @@ end
 
 ns.TABS = { "ready", "progress", "zone", "all" }
 
+-- Inside a dungeon the game gives no player position, so distances are
+-- unknown there. Quests that belong to the instance you are in count as
+-- "here" (distance 0) instead of dropping to the end of the list.
+local function EJInstance(mapID)
+    if not (mapID and EJ_GetInstanceForMap) then return nil end
+    local ok, id = pcall(EJ_GetInstanceForMap, mapID)
+    return ok and type(id) == "number" and id > 0 and id or nil
+end
+
+local function CurrentInstance(pmap)
+    if not IsInInstance then return nil end
+    local inInstance, kind = IsInInstance()
+    if not inInstance or kind == "pvp" or kind == "arena" then return nil end
+    local name = GetInstanceInfo and GetInstanceInfo()
+    return { name = name, ej = EJInstance(pmap), map = pmap }
+end
+
+local function InCurrentInstance(inst, q, zname)
+    if not inst then return false end
+    if q.map and q.map == inst.map then return true end
+    if inst.ej and q.map and EJInstance(q.map) == inst.ej then return true end
+    local n = inst.name
+    return n ~= nil and (q.placeName == n or q.header == n or zname == n)
+end
+
 -- Every quest in the log, with location, distance and extras.
 local function CollectQuests()
     if poiDirty then RebuildPOIs() end
@@ -208,6 +233,8 @@ local function CollectQuests()
     local pzone = ZoneOf(pmap)
     local pzoneName = MapName(pzone)
     local pc, pwx, pwy = WorldPos(pmap, px, py)
+    local inst = CurrentInstance(pmap)
+    ns.currentInstanceName = inst and inst.name or nil
 
     local list, header = {}, nil
     for i = 1, C_QuestLog.GetNumQuestLogEntries() do
@@ -241,6 +268,13 @@ local function CollectQuests()
                 q.place, q.placeName = ns:GetPlace(q.map, q.x, q.y)
                 q.chain = ns:GetChain(id)
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
+                if InCurrentInstance(inst, q, zname) then
+                    q.dist, q.here, q.group, q.inInstance = 0, true, "\0here", true
+                elseif inst and q.here then
+                    -- inside a dungeon, only its own quests are "here"
+                    q.here = false
+                    q.group = zname or header or L.UNKNOWN_ZONE
+                end
                 if not q.ready then q.objectives = Objectives(id) end
                 list[#list + 1] = q
             end
@@ -285,7 +319,7 @@ local function GetQuests(tab)
                 here = q.ready
             else
                 key, here = q.group, q.here
-                title = q.here and L.ON_THIS_MAP:format(MapName(pzone) or "?") or q.group
+                title = q.here and L.ON_THIS_MAP:format(ns.currentInstanceName or MapName(pzone) or "?") or q.group
             end
             local g = byName[key]
             if not g then
@@ -1033,7 +1067,7 @@ local function SetupQuestRow(row, q, y)
     local title = q.title
     if q.failed then title = "|cffff4040" .. title .. "|r" end
     row.text:SetText(lvl .. title)
-    local right = FormatDist(q.dist)
+    local right = q.inInstance and "" or FormatDist(q.dist)
     if q.eta then
         right = (right ~= "" and (right .. " · ") or "") .. FormatTime(q.eta)
     end
