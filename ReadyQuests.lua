@@ -226,15 +226,24 @@ local function InCurrentInstance(inst, q, zname)
 end
 
 -- Every quest in the log, with location, distance and extras.
+local lastOutside -- last known position outside an instance: { map, x, y }
+
 local function CollectQuests()
     if poiDirty then RebuildPOIs() end
 
     local pmap, px, py = PlayerPos()
     local pzone = ZoneOf(pmap)
     local pzoneName = MapName(pzone)
-    local pc, pwx, pwy = WorldPos(pmap, px, py)
     local inst = CurrentInstance(pmap)
     ns.currentInstanceName = inst and inst.name or nil
+    -- Inside a dungeon there is no player position: measure from where you
+    -- were before going in (the entrance), so the order does not change.
+    if px and not inst then
+        lastOutside = { pmap, px, py }
+    elseif inst and not WorldPos(pmap, px, py) and lastOutside then
+        pmap, px, py = lastOutside[1], lastOutside[2], lastOutside[3]
+    end
+    local pc, pwx, pwy = WorldPos(pmap, px, py)
 
     local list, header = {}, nil
     for i = 1, C_QuestLog.GetNumQuestLogEntries() do
@@ -1405,7 +1414,21 @@ SlashCmdList.READYQUESTS = function(msg)
         end
         print(PREFIX .. ("hideQuestie=%s hideBlizzard=%s maxQuests=%s"):format(tostring(db.hideQuestie),
             tostring(db.hideBlizzard), tostring(MaxQuests())))
-        local groups = GetReadyQuests()
+        local pm = C_Map.GetBestMapForUnit("player")
+        local iname, itype, _, _, _, _, _, iid = GetInstanceInfo()
+        print(PREFIX .. ("instance: name=%s type=%s id=%s | EJ(playerMap)=%s | zoneOf=%s %s"):format(
+            tostring(iname), tostring(itype), tostring(iid), tostring(EJInstance(pm)),
+            tostring(ZoneOf(pm)), tostring(MapName(ZoneOf(pm)))))
+        local groups = GetQuests("all")
+        for _, g in ipairs(groups) do
+            for _, q in ipairs(g.quests) do
+                print(("  [%s] #%d %s | header=%s | map=%s %s EJ=%s | place=%s | here=%s inst=%s | dist=%s"):format(
+                    g.title, q.id, q.title, tostring(q.header), tostring(q.map), tostring(MapName(q.map)),
+                    tostring(EJInstance(q.map)), tostring(q.placeName), tostring(q.here), tostring(q.inInstance),
+                    q.dist and ("%.0f"):format(q.dist) or "nil"))
+            end
+        end
+        groups = GetReadyQuests()
         for _, g in ipairs(groups) do
             for _, q in ipairs(g.quests) do
                 local mi = q.map and C_Map.GetMapInfo(q.map)
