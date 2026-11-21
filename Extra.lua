@@ -157,3 +157,62 @@ end
 function ns:ResetPlaceCache()
     wipe(instanceCache)
 end
+
+---------------------------------------------------------------------------
+-- Dungeon quests: is the turn-in inside or outside the dungeon?
+-- Forever Dungeon Journal knows the turn-in NPC of dungeon quests (the game's
+-- map often points at the entrance even when the NPC is inside). Without it,
+-- the map at the turn-in spot decides.
+---------------------------------------------------------------------------
+local fdjIndex
+local function FDJIndex()
+    if fdjIndex ~= nil then return fdjIndex or nil end
+    local FDJ = _G.ForeverDungeonJournal_NS
+    if not (type(FDJ) == "table" and type(FDJ.DB) == "table") then
+        fdjIndex = false
+        return nil
+    end
+    fdjIndex = {}
+    for name, dungeon in pairs(FDJ.DB) do
+        if type(dungeon) == "table" and type(dungeon.quests) == "table" then
+            for _, q in ipairs(dungeon.quests) do
+                if type(q) == "table" and q.id and type(q.turnin) == "string" then
+                    fdjIndex[q.id] = { turnin = q.turnin, dungeon = name }
+                end
+            end
+        end
+    end
+    if type(FDJ.QUEST_PREREQ_DETAILS) == "table" then
+        for id, d in pairs(FDJ.QUEST_PREREQ_DETAILS) do
+            if type(d) == "table" and type(d.turnin) == "string" and not fdjIndex[id] then
+                fdjIndex[id] = { turnin = d.turnin }
+            end
+        end
+    end
+    return fdjIndex
+end
+
+local function TextInside(turnin, dungeon)
+    local FDJ = _G.ForeverDungeonJournal_NS
+    if FDJ and FDJ.TurnInInsideDungeon then
+        local ok, inside = pcall(FDJ.TurnInInsideDungeon, turnin, dungeon)
+        if ok then return inside and true or false end
+    end
+    local t = turnin:lower()
+    if t:find("outside", 1, true) then return false end
+    return t:find("inside", 1, true) ~= nil
+end
+
+-- Returns "inside" | "outside" | nil, turn-in text (from Forever Dungeon Journal) or nil.
+function ns:GetTurnInSide(q)
+    local isDungeonQuest = q.qtype == "dungeon" or q.qtype == "raid"
+    local idx = FDJIndex()
+    local e = idx and idx[q.id]
+    if e and (e.dungeon or isDungeonQuest) then
+        return TextInside(e.turnin, e.dungeon) and "inside" or "outside", e.turnin
+    end
+    if isDungeonQuest and q.ready and q.map then
+        return q.place == "dungeon" and "inside" or "outside", nil
+    end
+    return nil
+end

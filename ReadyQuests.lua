@@ -277,6 +277,7 @@ local function CollectQuests()
                 q.place, q.placeName = ns:GetPlace(q.map, q.x, q.y)
                 q.chain = ns:GetChain(id)
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
+                q.side, q.sideText = ns:GetTurnInSide(q)
                 if InCurrentInstance(inst, q, zname) then
                     q.dist, q.here, q.group, q.inInstance = 0, true, "\0here", true
                 elseif inst and q.here then
@@ -818,8 +819,14 @@ end
 
 local function RewardTags(q, xpState)
     local t = {}
-    if db.showPlace and q.place == "dungeon" then t[#t + 1] = "|cffff8040" .. L.TAG_DUNGEON .. "|r" end
-    if db.showPlace and q.place == "cave" then t[#t + 1] = "|cffc8a060" .. L.TAG_CAVE .. "|r" end
+    if db.showPlace and q.side == "inside" then
+        t[#t + 1] = "|cffff8040" .. L.TAG_INSIDE .. "|r"
+    elseif db.showPlace and q.side == "outside" then
+        t[#t + 1] = "|cff80c8ff" .. L.TAG_OUTSIDE .. "|r"
+    elseif db.showPlace and q.place == "dungeon" then
+        t[#t + 1] = "|cffff8040" .. L.TAG_DUNGEON .. "|r"
+    end
+    if db.showPlace and q.place == "cave" and not q.side then t[#t + 1] = "|cffc8a060" .. L.TAG_CAVE .. "|r" end
     if db.showPlace and q.qtype then
         local name = q.qtypeName or (q.qtype == "raid" and L.QTYPE_RAID) or (q.qtype == "dungeon" and L.QTYPE_DUNGEON) or q.qtype
         t[#t + 1] = "|cffa335ee[" .. name .. "]|r"
@@ -1004,7 +1011,11 @@ local function Row_OnEnter(self)
     if wp and wp ~= "" then GameTooltip:AddLine(wp, 1, 0.82, 0, true) end
     if q.dist then GameTooltip:AddLine(L.DISTANCE:format(math.floor(q.dist + 0.5)), 0.8, 0.8, 0.8) end
     if q.eta then GameTooltip:AddLine(L.TRAVEL:format(FormatTime(q.eta)), 0.8, 0.8, 0.8) end
-    if q.place and q.ready then
+    if q.side then
+        local line = q.side == "inside" and L.SIDE_INSIDE or L.SIDE_OUTSIDE
+        GameTooltip:AddLine(line, q.side == "inside" and 1 or 0.5, q.side == "inside" and 0.55 or 0.8, q.side == "inside" and 0.25 or 1)
+        if q.sideText then GameTooltip:AddLine(q.sideText, 0.8, 0.8, 0.8, true) end
+    elseif q.place and q.ready then
         local txt = q.place == "dungeon" and L.PLACE_DUNGEON or L.PLACE_CAVE
         GameTooltip:AddLine(txt:format(q.placeName or "?"), 1, 0.55, 0.25)
     end

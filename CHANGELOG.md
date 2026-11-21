@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## 2.7.1
+- Dungeon quests show whether the turn-in is **Inside** or **Outside** the dungeon (tag and tooltip). Uses Forever Dungeon Journal's quest data when installed (it knows NPCs the map places at the entrance), otherwise the map at the turn-in spot.
+
 ## 2.7.0
 - Tabs: **Ready**, **Active** (in progress, with objectives), **Zone** (quests of your current zone) and **All** (whole log by zone), with a quest count on each tab.
 - Group headers collapse/expand with a click (remembered per tab).
