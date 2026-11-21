@@ -11,7 +11,7 @@ local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, showRewards = true, showPlace = true, showChain = true,
+    width = WIDTH, maxHeight = 400, showRewards = true, showPlace = true, showChain = true, showDistance = false,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
@@ -1239,6 +1239,8 @@ local function SetupHeaderRow(row, g, y, collapsed)
     else
         row.text:SetText(sign .. "|cffffd100" .. g.title .. "|r")
     end
+    row.dist:ClearAllPoints()
+    row.dist:SetPoint("RIGHT", -2, 0)
     row.dist:SetText(("(%d)"):format(#g.quests))
     row.tags:ClearAllPoints()
     row.tags:SetPoint("RIGHT", row.dist, "LEFT", -4, 0)
@@ -1293,9 +1295,16 @@ local function SetupQuestRow(row, q, y)
     local title = q.title
     if q.failed then title = "|cffff4040" .. title .. "|r" end
     row.text:SetText(lvl .. title)
-    row.dist:SetText("")
+    local right = ""
+    if db.showDistance then
+        right = q.inInstance and "" or FormatDist(q.dist)
+        if q.eta then right = (right ~= "" and (right .. " · ") or "") .. FormatTime(q.eta) end
+    end
+    row.dist:ClearAllPoints()
+    row.dist:SetPoint("RIGHT", row, "RIGHT", q.useItem and -(ROW_H + 4) or -2, 0)
+    row.dist:SetText(right)
     row.tags:ClearAllPoints()
-    row.tags:SetPoint("RIGHT", row, "RIGHT", q.useItem and -(ROW_H + 4) or -2, 0)
+    row.tags:SetPoint("RIGHT", row.dist, "LEFT", right ~= "" and -4 or 0, 0)
     row.tags:SetText(RewardTags(q, ns:XPState()))
     local left = SetItemButtons(row, q)
     if left ~= row.tags then

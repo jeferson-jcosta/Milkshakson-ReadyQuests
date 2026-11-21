@@ -2,7 +2,7 @@
 
 ## Unreleased
 - Quests with a usable item (torch, bottle, etc.) get a button on the right of their row to use it, with cooldown and charges, like the game's tracker. In combat the list keeps its layout while these buttons are shown (changes apply when combat ends), and scrolling/dragging waits for the end of combat.
-- Quest rows no longer show distance and travel time (still in the tooltip; sorting unchanged).
+- Distance and travel time on quest rows are now optional (Options > List, off by default); always in the tooltip, sorting unchanged.
 - Tooltip: the money reward is labelled "Money" / "Dinheiro" instead of "Gold" / "Ouro" (it can be silver or copper).
 
 ## 2.8.0
