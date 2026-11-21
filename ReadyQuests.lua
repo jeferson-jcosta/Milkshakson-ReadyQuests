@@ -465,6 +465,66 @@ local function AbandonQuest(q)
     StaticPopup_Show("ABANDON_QUEST", q.title)
 end
 
+-- Ask for help: post the quest (link + what is still missing) in party/raid
+-- or in a chat channel you have joined. Sent from the menu click, which is a
+-- hardware event, as the game requires for public channels.
+local HELP_COOLDOWN = 30
+local lastHelp = {}
+
+local function HelpMessage(q)
+    local link = GetQuestLink and GetQuestLink(q.id) or ("[" .. (q.title or "?") .. "]")
+    local missing = {}
+    for _, o in ipairs(Objectives(q.id) or {}) do
+        if not o.finished then missing[#missing + 1] = o.text end
+    end
+    local msg = L.HELP_MSG:format(link)
+    if #missing > 0 then
+        msg = msg .. " - " .. table.concat(missing, ", ")
+    end
+    if #msg > 255 then msg = msg:sub(1, 252) .. "..." end
+    return msg
+end
+
+local function JoinedChannels()
+    local out = {}
+    if not GetChannelList then return out end
+    local list = { GetChannelList() }
+    -- id, name, disabled triples (older clients: id, name pairs)
+    local stride = (type(list[3]) == "boolean") and 3 or 2
+    for i = 1, #list, stride do
+        local id, name, disabled = list[i], list[i + 1], stride == 3 and list[i + 2]
+        if type(id) == "number" and type(name) == "string" and not disabled then
+            out[#out + 1] = { id = id, name = name }
+        end
+    end
+    return out
+end
+
+local function AskForHelp(q, chatType, channel)
+    local key = chatType .. (channel or "")
+    local now = GetTime()
+    if lastHelp[key] and now - lastHelp[key] < HELP_COOLDOWN then
+        print(PREFIX .. L.HELP_WAIT:format(math.ceil(HELP_COOLDOWN - (now - lastHelp[key]))))
+        return
+    end
+    lastHelp[key] = now
+    local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
+    send(HelpMessage(q), chatType, nil, channel)
+end
+
+local function HelpMenu(root, q)
+    local sub = root:CreateButton(L.MENU_HELP)
+    if IsInGroup and IsInGroup() then
+        local kind = (IsInRaid and IsInRaid()) and "RAID" or "PARTY"
+        sub:CreateButton(kind == "RAID" and L.MENU_HELP_RAID or L.MENU_HELP_PARTY,
+            function() AskForHelp(q, kind) end)
+    end
+    for _, c in ipairs(JoinedChannels()) do
+        sub:CreateButton(("%d. %s"):format(c.id, c.name), function() AskForHelp(q, "CHANNEL", c.id) end)
+    end
+    sub:CreateButton(L.MENU_HELP_SAY, function() AskForHelp(q, "SAY") end)
+end
+
 local function QuestMenu(owner, q)
     if not (MenuUtil and MenuUtil.CreateContextMenu) then
         OpenOnMap(q)
@@ -483,6 +543,7 @@ local function QuestMenu(owner, q)
         if pushable and IsInGroup and IsInGroup() then
             root:CreateButton(L.MENU_SHARE, function() ShareQuest(q) end)
         end
+        if not q.ready then HelpMenu(root, q) end
         local canAbandon = not C_QuestLog.CanAbandonQuest or C_QuestLog.CanAbandonQuest(q.id)
         if canAbandon then
             root:CreateButton("|cffff4040" .. L.MENU_ABANDON .. "|r", function() AbandonQuest(q) end)

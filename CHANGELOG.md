@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Right-click menu: **Ask for help** on quests in progress. Posts the quest link and the objectives still missing in party/raid, any chat channel you joined (General, LookingForGroup...) or /say. 30 s cooldown per channel.
+
 ## 2.7.2
 - Fix: quests whose turn-in is in a neighbouring zone were grouped under the wrong zone (e.g. Theramore quests under The Barrens). The POI now goes to the zone it actually sits in.
 - `/rq debug` shows which map listed each quest.
