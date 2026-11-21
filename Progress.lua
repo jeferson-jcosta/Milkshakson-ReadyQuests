@@ -160,16 +160,30 @@ end
 -- Returns progress for a zone-level uiMapID:
 -- { zoneName, done, total, available = {...}, completed = {...}, missing = {...} }
 -- or nil, reason ("noquestie" | "loading" | "nozone").
--- Questie's lists for a zone, or nil when Questie is not installed / not ready.
+local function QuestieInstalled()
+    return C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Questie") or (IsAddOnLoaded and IsAddOnLoaded("Questie")) or false
+end
+
+-- Questie's lists for a zone, or nil + the step that failed (for /rq debug).
 local function QuestieTree(uiMapID)
+    if not QuestieInstalled() then return nil, "not installed" end
     local journey, zoneDB, questDB = Questie_()
-    if not (journey and journey.zoneMap and journey.private and journey.private.questsByZone) then return nil end
-    if not (zoneDB and zoneDB.GetAreaIdByUiMapId) then return nil end
+    if not journey then return nil, "no QuestieJourney module" end
+    if not (journey.private and journey.private.questsByZone) then return nil, "no questsByZone" end
+    if not journey.zoneMap then return nil, "loading (Journey zoneMap not built yet)" end
+    if not (zoneDB and zoneDB.GetAreaIdByUiMapId) then return nil, "no ZoneDB" end
     local okA, areaId = pcall(zoneDB.GetAreaIdByUiMapId, zoneDB, uiMapID)
-    if not (okA and areaId) then return nil end
+    if not (okA and areaId) then return nil, "no areaId for uiMap " .. tostring(uiMapID) .. (okA and "" or (": " .. tostring(areaId))) end
     local okT, tree = pcall(journey.private.questsByZone.CollectZoneQuests, journey.private.questsByZone, areaId)
-    if not (okT and type(tree) == "table") then return nil end
-    return tree, zoneDB, questDB
+    if not okT then return nil, "CollectZoneQuests error: " .. tostring(tree) end
+    if type(tree) ~= "table" then return nil, "no quests for area " .. tostring(areaId) end
+    return tree, zoneDB, questDB, areaId
+end
+ns.ZoneProgressDiag = function(uiMapID)
+    local tree, a, _, areaId = QuestieTree(uiMapID)
+    if not tree then return "Questie: " .. tostring(a) end
+    return ("Questie: ok, area %s | %s | %s | %s"):format(tostring(areaId), tostring(tree[2] and tree[2].text),
+        tostring(tree[4] and tree[4].text), tostring(tree[5] and tree[5].text))
 end
 
 function ns:GetZoneProgress(uiMapID, zoneName)
@@ -180,7 +194,8 @@ function ns:GetZoneProgress(uiMapID, zoneName)
     local tree, zoneDB, questDB = QuestieTree(uiMapID)
     if not tree then
         local data, reason = LearnedProgress(uiMapID, zoneName)
-        if data then cache.key, cache.t, cache.data = uiMapID, now, data end
+        -- While Questie is still loading, ask again on the next refresh.
+        if data and not QuestieInstalled() then cache.key, cache.t, cache.data = uiMapID, now, data end
         return data, reason
     end
 

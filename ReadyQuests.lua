@@ -1623,6 +1623,12 @@ SlashCmdList.READYQUESTS = function(msg)
                     tostring(hiddenByUs[f] or false)))
             end
         end
+        do
+            local zone = ZoneOf(C_Map.GetBestMapForUnit("player"))
+            local d = ns:GetZoneProgress(zone, MapName(zone))
+            print(PREFIX .. ("zone progress: uiMap %s %s | %s | result %s"):format(tostring(zone), tostring(MapName(zone)),
+                ns.ZoneProgressDiag(zone), d and (("%d/%d%s"):format(d.done, d.total, d.learned and " (learned)" or "")) or "nil"))
+        end
         print(PREFIX .. ("hideQuestie=%s hideBlizzard=%s maxQuests=%s"):format(tostring(db.hideQuestie),
             tostring(db.hideBlizzard), tostring(MaxQuests())))
         local pm = C_Map.GetBestMapForUnit("player")
