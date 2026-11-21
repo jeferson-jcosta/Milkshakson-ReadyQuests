@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Tooltip: the money reward is labelled "Money" / "Dinheiro" instead of "Gold" / "Ouro" (it can be silver or copper).
+
 ## 2.8.0
 - Right-click menu: **Ask for help** on quests in progress. Posts the quest link and the objectives still missing in party/raid, any chat channel you joined (General, LookingForGroup...) or /say. 30 s cooldown per channel.
 - Quest chains no longer use Questie. Sources: the game's quest lines (now asked with the quest's map), Forever Dungeon Journal's chains when that addon is installed (optional), and links learned while you play (the same NPC offers or gives you a quest right after you turn one in; kept per account).
