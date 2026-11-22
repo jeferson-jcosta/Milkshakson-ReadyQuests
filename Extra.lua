@@ -319,16 +319,25 @@ local function TextInside(turnin, dungeon)
     return t:find("inside", 1, true) ~= nil
 end
 
--- Returns "inside" | "outside" | nil, turn-in text (from Forever Dungeon Journal) or nil.
+-- Returns side, turn-in text (from Forever Dungeon Journal) or nil, turn-in side.
+-- side = where you go now: a dungeon quest still in progress is done inside
+-- the dungeon ("inside") even when it is turned in outside (e.g. Mythology of
+-- the Titans: book in Scarlet Monastery, turn-in in Ironforge). Once ready,
+-- side = where the turn-in is.
 function ns:GetTurnInSide(q)
     local isDungeonQuest = q.qtype == "dungeon" or q.qtype == "raid"
     local idx = FDJIndex()
     local e = idx and idx[q.id]
+    local turn
     if e and (e.dungeon or isDungeonQuest) then
-        return TextInside(e.turnin, e.dungeon) and "inside" or "outside", e.turnin
+        turn = TextInside(e.turnin, e.dungeon) and "inside" or "outside"
+        if not q.ready then return "inside", e.turnin, turn end
+        return turn, e.turnin, turn
     end
+    if isDungeonQuest and not q.ready then return "inside", nil, nil end
     if isDungeonQuest and q.ready and q.map then
-        return q.place == "dungeon" and "inside" or "outside", nil
+        turn = q.place == "dungeon" and "inside" or "outside"
+        return turn, nil, turn
     end
     return nil
 end

@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Dungeon quests still in progress show **Inside** (their objectives are in the dungeon) even when they are turned in outside, e.g. Mythology of the Titans and Past Due (book in Scarlet Monastery, turn-in in Ironforge / Dalaran). The tooltip says "Objectives inside the dungeon" and where the turn-in is. Once ready, the tag shows the turn-in side as before.
+
 ## 2.9.3
 - Right-click menu: **LFM** (looking for more) when you are in a group that still has room. Posts the quest link and your group size (e.g. 3/5) in a chat channel you joined or /say. 30 s cooldown per channel.
 - `/rq debug` output also opens in a copy window (Ctrl+A, Ctrl+C) and is saved in the SavedVariables, since the chat can't be copied.

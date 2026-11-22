@@ -344,7 +344,7 @@ local function CollectQuests()
                 q.chain = ns:GetChain(id, q.map or pmap)
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
                 q.kind = header and kinds[header] or nil
-                q.side, q.sideText = ns:GetTurnInSide(q)
+                q.side, q.sideText, q.turnSide = ns:GetTurnInSide(q)
                 -- Dungeon/raid quest still in progress (quest tag from the game):
                 -- its objectives are in the dungeon, which is the quest log
                 -- header the game files it under (Uldaman, Scarlet Monastery).
@@ -1334,8 +1334,14 @@ local function Row_OnEnter(self)
     if q.dist then GameTooltip:AddLine(L.DISTANCE:format(math.floor(q.dist + 0.5)), 0.8, 0.8, 0.8) end
     if q.eta then GameTooltip:AddLine(L.TRAVEL:format(FormatTime(q.eta)), 0.8, 0.8, 0.8) end
     if q.side then
-        local line = q.side == "inside" and L.SIDE_INSIDE or L.SIDE_OUTSIDE
-        GameTooltip:AddLine(line, q.side == "inside" and 1 or 0.5, q.side == "inside" and 0.55 or 0.8, q.side == "inside" and 0.25 or 1)
+        if not q.ready and q.side == "inside" then
+            GameTooltip:AddLine(L.SIDE_OBJECTIVES, 1, 0.55, 0.25)
+        end
+        local turn = q.ready and q.side or q.turnSide
+        if turn then
+            local line = turn == "inside" and L.SIDE_INSIDE or L.SIDE_OUTSIDE
+            GameTooltip:AddLine(line, turn == "inside" and 1 or 0.5, turn == "inside" and 0.55 or 0.8, turn == "inside" and 0.25 or 1)
+        end
         if q.sideText then GameTooltip:AddLine(q.sideText, 0.8, 0.8, 0.8, true) end
     elseif q.place and q.ready then
         local txt = q.place == "dungeon" and L.PLACE_DUNGEON or L.PLACE_CAVE
