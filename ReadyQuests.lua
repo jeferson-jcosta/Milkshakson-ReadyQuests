@@ -266,6 +266,9 @@ end
 
 local function InCurrentInstance(inst, q, zname)
     if not inst then return false end
+    -- Ready and turned in outside the dungeon (Forever Dungeon Journal): not here,
+    -- even if the quest log files it under the dungeon's name.
+    if q.ready and q.turnSide == "outside" then return false end
     if q.map and q.map == inst.map then return true end
     if inst.ej and q.map and EJInstance(q.map) == inst.ej then return true end
     local n = inst.name
@@ -345,6 +348,18 @@ local function CollectQuests()
                 q.qtype, q.qtypeName = ns:GetQuestType(id)
                 q.kind = header and kinds[header] or nil
                 q.side, q.sideText, q.turnSide = ns:GetTurnInSide(q)
+                -- Ready, turned in outside the dungeon (Forever Dungeon Journal), but the
+                -- game points at the dungeon or gives no spot (Mythology of the Titans:
+                -- book from Scarlet Monastery, turn-in in Ironforge): group it by the
+                -- turn-in place, without a distance to the wrong spot.
+                if q.ready and q.turnSide == "outside" and (q.place == "dungeon" or not q.map or (inst and q.here)) then
+                    local where = q.sideText and q.sideText:match(",%s*([^,]+)$")
+                    where = where and strtrim(where) or nil
+                    if where == "" then where = nil end
+                    q.dist, q.eta, q.turnInElsewhere = nil, nil, true
+                    q.here = (where ~= nil and where == pzoneName) or false
+                    q.group = q.here and "\0here" or where or zname or header or L.UNKNOWN_ZONE
+                end
                 -- Dungeon/raid quest still in progress (quest tag from the game):
                 -- its objectives are in the dungeon, which is the quest log
                 -- header the game files it under (Uldaman, Scarlet Monastery).
