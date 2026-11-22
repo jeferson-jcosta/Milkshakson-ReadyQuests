@@ -573,8 +573,23 @@ local function JoinedChannels()
     return out
 end
 
-local function AskForHelp(q, chatType, channel)
-    local key = chatType .. (channel or "")
+-- LFM: you are in a group and want more players for this quest.
+local function GroupSize()
+    local n = (GetNumGroupMembers and GetNumGroupMembers()) or 0
+    local max = (IsInRaid and IsInRaid()) and 40 or 5
+    return math.max(n, 1), max
+end
+
+local function LFMMessage(q)
+    local link = GetQuestLink and GetQuestLink(q.id) or ("[" .. (q.title or "?") .. "]")
+    local n, max = GroupSize()
+    local msg = L.LFM_MSG:format(link, n, max)
+    if #msg > 255 then msg = msg:sub(1, 252) .. "..." end
+    return msg
+end
+
+local function AskForHelp(q, chatType, channel, lfm)
+    local key = (lfm and "lfm:" or "") .. chatType .. (channel or "")
     local now = GetTime()
     if lastHelp[key] and now - lastHelp[key] < HELP_COOLDOWN then
         print(PREFIX .. L.HELP_WAIT:format(math.ceil(HELP_COOLDOWN - (now - lastHelp[key]))))
@@ -582,7 +597,7 @@ local function AskForHelp(q, chatType, channel)
     end
     lastHelp[key] = now
     local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
-    send(HelpMessage(q), chatType, nil, channel)
+    send(lfm and LFMMessage(q) or HelpMessage(q), chatType, nil, channel)
 end
 
 local function HelpMenu(root, q)
@@ -596,6 +611,18 @@ local function HelpMenu(root, q)
         sub:CreateButton(("%d. %s"):format(c.id, c.name), function() AskForHelp(q, "CHANNEL", c.id) end)
     end
     sub:CreateButton(L.MENU_HELP_SAY, function() AskForHelp(q, "SAY") end)
+
+    -- In a group that still has room: look for more players
+    if IsInGroup and IsInGroup() then
+        local n, max = GroupSize()
+        if n < max then
+            local lfm = root:CreateButton(L.MENU_LFM:format(n, max))
+            for _, c in ipairs(JoinedChannels()) do
+                lfm:CreateButton(("%d. %s"):format(c.id, c.name), function() AskForHelp(q, "CHANNEL", c.id, true) end)
+            end
+            lfm:CreateButton(L.MENU_HELP_SAY, function() AskForHelp(q, "SAY", nil, true) end)
+        end
+    end
 end
 
 local function QuestMenu(owner, q)
