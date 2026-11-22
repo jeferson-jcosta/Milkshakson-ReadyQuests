@@ -341,3 +341,64 @@ function ns:GetTurnInSide(q)
     end
     return nil
 end
+
+---------------------------------------------------------------------------
+-- Flight points not discovered yet, per zone. Game API only:
+-- C_TaxiMap.GetTaxiNodesForMap(zone) -> nodes with isUndiscovered / atlas.
+-- Only your faction's and neutral ones. Cached per zone; cleared when a
+-- flight master is opened or a flight path is learned.
+---------------------------------------------------------------------------
+local taxiCache = {}
+
+function ns:ClearTaxiCache() wipe(taxiCache) end
+
+local function TaxiFactionOK(f)
+    local E = Enum and Enum.FlightPathFaction
+    if f == nil or not E then return true end
+    if f == E.Neutral then return true end
+    local mine = UnitFactionGroup and UnitFactionGroup("player")
+    return mine ~= nil and f == E[mine]
+end
+
+local function TaxiUndiscovered(info)
+    if info.isUndiscovered ~= nil then return info.isUndiscovered == true end
+    local a = type(info.atlasName) == "string" and info.atlasName:lower() or ""
+    return a:find("undiscovered", 1, true) ~= nil
+end
+
+-- List of { id, name, map, x, y } or nil.
+function ns:UndiscoveredTaxi(zone)
+    if not (zone and C_TaxiMap and C_TaxiMap.GetTaxiNodesForMap) then return nil end
+    local c = taxiCache[zone]
+    if c ~= nil then return c or nil end
+    local list = {}
+    local ok, nodes = pcall(C_TaxiMap.GetTaxiNodesForMap, zone)
+    if ok and type(nodes) == "table" then
+        for _, info in ipairs(nodes) do
+            if type(info) == "table" and TaxiUndiscovered(info) and TaxiFactionOK(info.faction) then
+                local x, y
+                local pos = info.position
+                if type(pos) == "table" then
+                    if pos.GetXY then x, y = pos:GetXY() else x, y = pos.x, pos.y end
+                end
+                list[#list + 1] = { id = info.nodeID, name = info.name, map = zone, x = x, y = y }
+            end
+        end
+        table.sort(list, function(a, b) return (a.name or "") < (b.name or "") end)
+    end
+    taxiCache[zone] = #list > 0 and list or false
+    return taxiCache[zone] or nil
+end
+
+do
+    local f = CreateFrame("Frame")
+    for _, e in ipairs({ "TAXIMAP_OPENED", "TAXI_NODE_STATUS_CHANGED", "PLAYER_ENTERING_WORLD" }) do
+        pcall(f.RegisterEvent, f, e)
+    end
+    local mine = { TAXIMAP_OPENED = true, TAXI_NODE_STATUS_CHANGED = true, PLAYER_ENTERING_WORLD = true }
+    f:SetScript("OnEvent", function(_, event)
+        if not mine[event] then return end
+        wipe(taxiCache)
+        if ns.Refresh then ns.Refresh() end
+    end)
+end

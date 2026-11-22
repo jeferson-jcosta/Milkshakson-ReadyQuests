@@ -172,3 +172,10 @@ L.SIDE_INSIDE        = "Entrega dentro da dungeon"
 L.SIDE_OUTSIDE       = "Entrega fora da dungeon"
 L.SIDE_OBJECTIVES    = "Objetivos dentro da dungeon"
 L.COPY_TITLE        = "ReadyQuests debug - Ctrl+A, Ctrl+C para copiar (também fica salvo nas SavedVariables após /reload)"
+
+-- Undiscovered flight points
+L.TAXI_TITLE         = "Pontos de voo não descobertos"
+L.TAXI_HINT          = "Clique: waypoint para o mais próximo"
+L.TAXI_WAYPOINT      = "Ponto de voo: %s"
+L.CFG_SHOW_TAXI      = "Ícone de ponto de voo não descoberto no cabeçalho da zona"
+L.CFG_SHOW_TAXI_TIP  = "Um grifo (Aliança) ou mantícora (Horda) cinza ao lado da zona que tem um ponto de voo da sua facção ainda não descoberto. Passe o mouse para a lista, clique para um waypoint."

@@ -13,7 +13,7 @@ local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false,
+    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false, showTaxi = true,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
@@ -438,6 +438,14 @@ local function GetQuests(tab)
             local g = byName[key]
             if not g then
                 g = { key = key, here = here, title = title, quests = {} }
+                -- Zone map of the group, for the undiscovered flight point icon.
+                if tab ~= "zone" then
+                    if q.here then
+                        g.zone = (not ns.currentInstanceName) and pzone or nil
+                    elseif q.zone and MapName(q.zone) == key then
+                        g.zone = q.zone
+                    end
+                end
                 byName[key] = g
                 groups[#groups + 1] = g
             end
@@ -1444,6 +1452,84 @@ local function GetRow(i)
     return row
 end
 
+---------------------------------------------------------------------------
+-- Undiscovered flight point icon on zone headers (grey gryphon / wyvern)
+---------------------------------------------------------------------------
+local TAXI_ICON = { Alliance = "Interface\\Icons\\Ability_Mount_Gryphon_01", Horde = "Interface\\Icons\\Ability_Mount_Wyvern_01" }
+
+local function NavigatePoint(map, x, y, title)
+    if not (map and x and y) then return end
+    local api = SPF()
+    if api and api.NavigateRoute then
+        local ok, started = pcall(api.NavigateRoute, OWNER, { { map = map, x = x, y = y, title = title } })
+        if ok and started then return end
+    end
+    if TomTom and TomTom.AddWaypoint then
+        TomTom:AddWaypoint(map, x, y, { title = title, from = OWNER, crazy = true })
+        return
+    end
+    if C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates then
+        C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(map, x, y))
+        if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then C_SuperTrack.SetSuperTrackedUserWaypoint(true) end
+    end
+end
+
+local function NearestTaxi(nodes)
+    local pmap, px, py = PlayerPos()
+    local pc, pwx, pwy = WorldPos(pmap, px, py)
+    local best, bestD
+    for _, n in ipairs(nodes) do
+        local c, wx, wy = WorldPos(n.map, n.x, n.y)
+        local d = (pc and c and pc == c) and math.sqrt((wx - pwx) ^ 2 + (wy - pwy) ^ 2) or nil
+        n.dist = d
+        if d and (not bestD or d < bestD) then best, bestD = n, d end
+    end
+    return best or nodes[1]
+end
+
+local function Taxi_OnEnter(self)
+    local nodes = self.nodes or {}
+    NearestTaxi(nodes)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText(L.TAXI_TITLE)
+    for _, n in ipairs(nodes) do
+        GameTooltip:AddDoubleLine(n.name or "?", n.dist and L.DISTANCE:format(math.floor(n.dist + 0.5)) or "", 1, 1, 1, 0.7, 0.7, 0.7)
+    end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(L.TAXI_HINT, 0.5, 0.8, 1)
+    GameTooltip:Show()
+end
+
+local function Taxi_OnClick(self)
+    local n = self.nodes and NearestTaxi(self.nodes)
+    if n then NavigatePoint(n.map, n.x, n.y, L.TAXI_WAYPOINT:format(n.name or "?")) end
+end
+
+local function SetTaxiButton(row, nodes)
+    local b = rawget(row, "taxi")
+    if not nodes then
+        if b then b:Hide(); b.nodes = nil end
+        return
+    end
+    if not b then
+        b = CreateFrame("Button", nil, row)
+        b:SetSize(13, 13)
+        b.tex = b:CreateTexture(nil, "ARTWORK")
+        b.tex:SetAllPoints()
+        b:SetScript("OnEnter", Taxi_OnEnter)
+        b:SetScript("OnLeave", GameTooltip_Hide)
+        b:SetScript("OnClick", Taxi_OnClick)
+        row.taxi = b
+    end
+    b.tex:SetTexture(TAXI_ICON[UnitFactionGroup and UnitFactionGroup("player") or ""] or TAXI_ICON.Alliance)
+    b.tex:SetDesaturated(true)
+    b.tex:SetVertexColor(0.85, 0.85, 0.85)
+    b:ClearAllPoints()
+    b:SetPoint("RIGHT", row.dist, "LEFT", -3, 0)
+    b.nodes = nodes
+    b:Show()
+end
+
 local function SetupHeaderRow(row, g, y, collapsed)
     row.quest = nil
     row.groupKey = db.tab .. ":" .. g.key
@@ -1471,11 +1557,13 @@ local function SetupHeaderRow(row, g, y, collapsed)
     row.dist:SetText(("(%d)"):format(#g.quests))
     row.tags:ClearAllPoints()
     row.tags:SetPoint("RIGHT", row.dist, "LEFT", -4, 0)
+    SetTaxiButton(row, db.showTaxi and g.zone and ns.UndiscoveredTaxi and ns:UndiscoveredTaxi(g.zone) or nil)
     row:Show()
 end
 
 local function SetupObjectiveRow(row, o, y)
     row.quest, row.groupKey = nil, nil
+    SetTaxiButton(row, nil)
     row:EnableMouse(false)
     row:SetHeight(OBJ_H)
     row:ClearAllPoints()
@@ -1517,6 +1605,7 @@ end
 
 local function SetupQuestRow(row, q, y)
     row.quest, row.groupKey = q, nil
+    SetTaxiButton(row, nil)
     row:EnableMouse(true)
     row:SetHeight(ROW_H)
     row:ClearAllPoints()
@@ -2127,6 +2216,27 @@ RunSlash = function(msg)
             end
         end
         Refresh()
+    elseif msg == "debug taxi" then
+        -- what the game reports for flight points in your zone and in the zones of your quests
+        local zones, seen = {}, {}
+        local function Add(z) if z and not seen[z] then seen[z] = true; zones[#zones + 1] = z end end
+        Add(ZoneOf(C_Map.GetBestMapForUnit("player")))
+        for _, q in ipairs(CollectQuests()) do Add(q.zone) end
+        print(("C_TaxiMap=%s GetTaxiNodesForMap=%s faction=%s"):format(tostring(C_TaxiMap ~= nil),
+            tostring(C_TaxiMap and C_TaxiMap.GetTaxiNodesForMap ~= nil), tostring(UnitFactionGroup("player"))))
+        for _, z in ipairs(zones) do
+            local ok, nodes = pcall(C_TaxiMap.GetTaxiNodesForMap, z)
+            local n = ok and type(nodes) == "table" and #nodes or -1
+            print(("  zone %d %s: %d nodes"):format(z, tostring(MapName(z)), n))
+            if ok and type(nodes) == "table" then
+                for _, i in ipairs(nodes) do
+                    print(("    #%s %s | undiscovered=%s | atlas=%s | faction=%s | state=%s"):format(tostring(i.nodeID), tostring(i.name),
+                        tostring(i.isUndiscovered), tostring(i.atlasName), tostring(i.faction), tostring(i.state)))
+                end
+            end
+            local u = ns:UndiscoveredTaxi(z)
+            print(("    -> icon: %s"):format(u and (#u .. " undiscovered") or "none"))
+        end
     elseif msg == "debug kind" then
         -- what the game says about each quest's type (for class/profession detection)
         local header

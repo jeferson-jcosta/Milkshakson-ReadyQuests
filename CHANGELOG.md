@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Zone headers get a small grey **gryphon** (Alliance) or **wyvern** (Horde) when the zone has a flight point of your faction (or neutral) you haven't discovered yet. Hover: the list with distances; click: waypoint to the nearest (route with Shortest Path Forever / TomTom when installed). Game API only (`C_TaxiMap`). Option in Options > List (on by default). `/rq debug taxi` shows what the game reports.
+
 ## 2.9.4
 - Ready dungeon quests turned in outside (Forever Dungeon Journal) are no longer listed "On this map" inside the dungeon just because the quest log files them under its name. If the game points at the dungeon, they are grouped by the turn-in place instead (Mythology of the Titans -> Ironforge), without a distance to the wrong spot.
 - Dungeon quests still in progress show **Inside** (their objectives are in the dungeon) even when they are turned in outside, e.g. Mythology of the Titans and Past Due (book in Scarlet Monastery, turn-in in Ironforge / Dalaran). The tooltip says "Objectives inside the dungeon" and where the turn-in is. Once ready, the tag shows the turn-in side as before.

@@ -172,3 +172,10 @@ L.SIDE_INSIDE        = "Turn-in inside the dungeon"
 L.SIDE_OUTSIDE       = "Turn-in outside the dungeon"
 L.SIDE_OBJECTIVES    = "Objectives inside the dungeon"
 L.COPY_TITLE        = "ReadyQuests debug - Ctrl+A, Ctrl+C to copy (also saved in the SavedVariables after /reload)"
+
+-- Undiscovered flight points
+L.TAXI_TITLE         = "Flight points not discovered"
+L.TAXI_HINT          = "Click: waypoint to the nearest one"
+L.TAXI_WAYPOINT      = "Flight point: %s"
+L.CFG_SHOW_TAXI      = "Undiscovered flight point icon on zone headers"
+L.CFG_SHOW_TAXI_TIP  = "A grey gryphon (Alliance) or wyvern (Horde) next to a zone with a flight point of your faction you haven't discovered yet. Hover for the list, click for a waypoint."
