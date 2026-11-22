@@ -1,6 +1,6 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.9.3
 - Right-click menu: **LFM** (looking for more) when you are in a group that still has room. Posts the quest link and your group size (e.g. 3/5) in a chat channel you joined or /say. 30 s cooldown per channel.
 - `/rq debug` output also opens in a copy window (Ctrl+A, Ctrl+C) and is saved in the SavedVariables, since the chat can't be copied.
 
