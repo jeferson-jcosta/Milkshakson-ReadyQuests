@@ -179,3 +179,9 @@ L.TAXI_HINT          = "Clique: waypoint para o mais próximo"
 L.TAXI_WAYPOINT      = "Ponto de voo: %s"
 L.CFG_SHOW_TAXI      = "Ícone de ponto de voo não descoberto no cabeçalho da zona"
 L.CFG_SHOW_TAXI_TIP  = "Um grifo (Aliança) ou mantícora (Horda) cinza ao lado da zona que tem um ponto de voo da sua facção ainda não descoberto. Passe o mouse para a lista, clique para um waypoint."
+
+-- Upgrade source
+L.CFG_UPGRADE        = "Verificar upgrade (itens de recompensa):"
+L.CFG_UP_AUTO        = "Automático"
+L.CFG_UP_ILVL        = "Nível do item"
+L.CFG_UPGRADE_NOTE   = "Automático: Pawn, senão GearQuest Forever (pesos de atributos da sua spec), senão nível do item. Se o addon escolhido não estiver instalado, usa o próximo."

@@ -28,6 +28,12 @@ function ns:BuildOptions(db)
     UI:Check(p, L.CFG_SHOW_KIND, L.CFG_SHOW_KIND_TIP, function() return db.showKind end, function(v) db.showKind = v; R() end)
     UI:Check(p, L.CFG_SHOW_DIST, L.CFG_SHOW_DIST_TIP, function() return db.showDistance end, function(v) db.showDistance = v; R() end)
     UI:Check(p, L.CFG_SHOW_TAXI, L.CFG_SHOW_TAXI_TIP, function() return db.showTaxi end, function(v) db.showTaxi = v; R() end)
+    UI:Note(p, L.CFG_UPGRADE)
+    UI:Radio(p, {
+        { "auto", L.CFG_UP_AUTO }, { "pawn", "Pawn" }, { "gearquest", "GearQuest" }, { "ilvl", L.CFG_UP_ILVL },
+    }, function() return db.upgradeSource or "auto" end,
+       function(v) db.upgradeSource = v; ns:InvalidateRewards(); R() end)
+    UI:Note(p, L.CFG_UPGRADE_NOTE)
 
     UI:Section(p, L.CFG_TRACKER)
     UI:Check(p, L.CFG_SHOW_OBJ, nil, function() return db.showObjectives end, function(v) db.showObjectives = v; R() end)

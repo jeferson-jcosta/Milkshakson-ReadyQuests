@@ -31,12 +31,86 @@ local function ItemInfo(link)
              classID = classID, subclassID = subclassID, texture = texture }
 end
 
--- Returns isUpgrade, detail ("ilvl 24 > 18", "empty slot", "Pawn").
+-- Upgrade sources, in order of preference (Options > List > Upgrades):
+--   Pawn      - your stat weights (PawnShouldItemLinkHaveUpgradeArrow)
+--   GearQuest - GearQuest Forever's stat score for your spec (GearQuest.Compare)
+--   ilvl      - item level from the game API
+-- "auto" = the first one available. A chosen addon that is not installed
+-- falls back to the next one in the list.
+local SOURCES = { "pawn", "gearquest", "ilvl" }
+
+local INV_TO_GQ = {
+    [1] = "Head", [2] = "Neck", [3] = "Shoulder", [15] = "Back", [5] = "Chest", [9] = "Wrist",
+    [10] = "Hands", [6] = "Waist", [7] = "Legs", [8] = "Feet", [11] = "Finger", [12] = "Finger",
+    [13] = "Trinket", [14] = "Trinket", [16] = "MainHand", [17] = "SecondaryHand", [18] = "Ranged",
+}
+
+local function GQCompare()
+    local GQ = _G.GearQuest
+    local C = type(GQ) == "table" and GQ.Compare
+    if type(C) == "table" and type(C.ScoreItemLinkStats) == "function" then return C, GQ end
+end
+
+function ns:UpgradeSourceAvailable(src)
+    if src == "pawn" then return type(PawnShouldItemLinkHaveUpgradeArrow) == "function" end
+    if src == "gearquest" then return GQCompare() ~= nil end
+    return src == "ilvl"
+end
+
+-- Source actually used: the preferred one if installed, else the next available.
+function ns:UpgradeSource()
+    local pref = ns.GetSetting and ns.GetSetting("upgradeSource") or "auto"
+    local start = 1
+    for i, s in ipairs(SOURCES) do if s == pref then start = i end end
+    for i = start, #SOURCES do
+        if ns:UpgradeSourceAvailable(SOURCES[i]) then return SOURCES[i] end
+    end
+    return "ilvl"
+end
+
+local function Cached(link)
+    local id = link and tonumber(link:match("item:(%d+)"))
+    if not id then return false end
+    if C_Item and C_Item.IsItemDataCachedByID then return C_Item.IsItemDataCachedByID(id) end
+    local GetInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    return GetInfo(link) ~= nil
+end
+
+-- GearQuest: stat score of the reward vs the weakest worn piece in its slots.
+-- Returns isUpgrade (nil = item data not loaded yet), detail.
+local function GearQuestUpgrade(link, slots)
+    local C = GQCompare()
+    local name = INV_TO_GQ[slots[1]]
+    if not (C and name) then return nil end
+    local ok, cand = pcall(C.ScoreItemLinkStats, C, link, name)
+    if not ok then return false end
+    if not cand or cand <= 0 then
+        if not Cached(link) then return nil end
+        cand = 0
+    end
+    local worst
+    for _, slot in ipairs(slots) do
+        local eq = GetInventoryItemLink("player", slot)
+        if not eq then return true, "empty" end
+        local ok2, sc = pcall(C.ScoreItemLinkStats, C, eq, INV_TO_GQ[slot] or name)
+        if not ok2 then return false end
+        if not sc or sc <= 0 then
+            if not Cached(eq) then return nil end
+            sc = 0
+        end
+        if not worst or sc < worst then worst = sc end
+    end
+    if not worst then return nil end
+    if cand > worst then return true, ("GearQuest %.0f > %.0f"):format(cand, worst) end
+    return false, ("GearQuest %.0f <= %.0f"):format(cand, worst)
+end
+
+-- Returns isUpgrade, detail ("ilvl 24 > 18", "empty", "Pawn", "GearQuest 52 > 40").
 local function CheckUpgrade(link, usable)
     if not link or usable == false then return false end
+    local src = ns:UpgradeSource()
 
-    -- Pawn knows your stat weights: trust it when installed.
-    if PawnShouldItemLinkHaveUpgradeArrow then
+    if src == "pawn" then
         local ok, up = pcall(PawnShouldItemLinkHaveUpgradeArrow, link, true)
         if ok and up ~= nil then return up and true or false, "Pawn" end
     end
@@ -45,6 +119,13 @@ local function CheckUpgrade(link, usable)
     if not cand then return nil end -- not loaded yet
     local slots = cand.equipLoc and SLOTS[cand.equipLoc]
     if not slots then return false end
+
+    if src == "gearquest" then
+        local up, detail = GearQuestUpgrade(link, slots)
+        if up ~= nil then return up, detail end
+        if not Cached(link) then return nil end
+        -- GearQuest could not score it: fall through to item level
+    end
 
     -- Compare with the weakest item in the possible slots.
     local worst, worstInfo, empty

@@ -13,7 +13,7 @@ local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false, showTaxi = true,
+    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false, showTaxi = true, upgradeSource = "auto",
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = false, hideBlizzard = false, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
@@ -1977,6 +1977,7 @@ function Refresh()
 end
 
 ns.Refresh = function() Refresh() end
+ns.GetSetting = function(k) return db and db[k] end
 
 grip:SetScript("OnMouseDown", function(_, button)
     if button ~= "LeftButton" or db.lockSize then return end

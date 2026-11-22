@@ -179,3 +179,9 @@ L.TAXI_HINT          = "Click: waypoint to the nearest one"
 L.TAXI_WAYPOINT      = "Flight point: %s"
 L.CFG_SHOW_TAXI      = "Undiscovered flight point icon on zone headers"
 L.CFG_SHOW_TAXI_TIP  = "A grey gryphon (Alliance) or wyvern (Horde) next to a zone with a flight point of your faction you haven't discovered yet. Hover for the list, click for a waypoint."
+
+-- Upgrade source
+L.CFG_UPGRADE        = "Upgrade check (reward items):"
+L.CFG_UP_AUTO        = "Auto"
+L.CFG_UP_ILVL        = "Item level"
+L.CFG_UPGRADE_NOTE   = "Auto: Pawn, else GearQuest Forever (stat weights of your spec), else item level. A chosen addon that is not installed falls back to the next one."
