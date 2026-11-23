@@ -1,6 +1,7 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
+- Options: "Buy me a coffee" moved to the top of the page, highlighted, with PayPal and PIX buttons that show the link ready to copy (addons can't open the browser). Shared UI library v8.
 - Reward upgrade check now prefers stat weights over item level: **Pawn**, else **GearQuest Forever** (stat score for your spec), else item level. A higher item level with worse stats is no longer shown as an upgrade when one of those addons is installed. Configurable in Options > List (Auto / Pawn / GearQuest / Item level); a chosen addon that is not installed falls back to the next. The tooltip says which one decided (e.g. "GearQuest 80 > 50").
 - Zone headers get a small grey **gryphon** (Alliance) or **wyvern** (Horde) when the zone has a flight point of your faction (or neutral) you haven't discovered yet. Hover: the list with distances; click: waypoint to the nearest (route with Shortest Path Forever / TomTom when installed). Game API only (`C_TaxiMap`). Option in Options > List (on by default). `/rq debug taxi` shows what the game reports.
 
