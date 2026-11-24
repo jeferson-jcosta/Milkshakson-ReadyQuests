@@ -15,7 +15,7 @@ local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
     width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false, showTaxi = true, upgradeSource = "auto",
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
-    hideQuestie = true, hideBlizzard = true, collapsedWindow = false, avoidFDJ = true }
+    hideQuestie = true, hideBlizzard = true, hideQuestMaster = true, hideEllesmere = true, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
 
 ---------------------------------------------------------------------------
@@ -1655,21 +1655,27 @@ end
 ---------------------------------------------------------------------------
 -- Refresh
 ---------------------------------------------------------------------------
--- Other quest trackers (Questie, Blizzard) hidden while this window is shown.
-local hiddenByUs = {}
-local function OtherTrackers()
-    local list = {}
-    if db.hideQuestie and _G.Questie_BaseFrame then list[#list + 1] = _G.Questie_BaseFrame end
-    local blizz = _G.ObjectiveTrackerFrame or _G.QuestWatchFrame
-    if db.hideBlizzard and blizz then list[#list + 1] = blizz end
-    return list
-end
-
+-- Other quest trackers hidden while this window is shown: frame name -> the
+-- option(s) that hide it. Frames of optional addons are looked up by name
+-- every time (some are created late), nothing is required.
+local TRACKERS = {
+    { "Questie_BaseFrame", "hideQuestie" },
+    { "ObjectiveTrackerFrame", "hideBlizzard" },
+    { "QuestWatchFrame", "hideBlizzard" },
+    { "QuestMasterTrackerFrame", "hideQuestMaster" },
+    { "EUI_CustomQuestTracker", "hideEllesmere" },
+    -- EllesmereUI's panel behind the game's tracker (its own frame on UIParent)
+    { "EllesmereUIQTBackground", "hideEllesmere", "hideBlizzard" },
+}
+local GAME_TRACKER = { Questie_BaseFrame = true, ObjectiveTrackerFrame = true, QuestWatchFrame = true }
+local trackerOf = {} -- frame -> its TRACKERS entry
+local hiddenByUs, wasShown = {}, {}
 local hooked = {}
 local function ShouldHide(f)
     if not (db and frame:IsShown()) then return false end
-    if f == _G.Questie_BaseFrame then return db.hideQuestie end
-    return db.hideBlizzard
+    local t = trackerOf[f]
+    if not t then return false end
+    return (db[t[2]] or (t[3] and db[t[3]])) and true or false
 end
 
 -- Forever's quest tracker can show itself during combat, when Hide() is not
@@ -1680,6 +1686,7 @@ local function CanToggle(f)
 end
 
 local function Suppress(f)
+    if not hiddenByUs[f] then wasShown[f] = f:IsShown() end
     hiddenByUs[f] = true
     f:SetAlpha(0)
     if CanToggle(f) and f:IsShown() then f:Hide() end
@@ -1690,6 +1697,11 @@ local function Release(f)
     if not CanToggle(f) then return end -- retried on PLAYER_REGEN_ENABLED
     hiddenByUs[f] = nil
     f:SetAlpha(1)
+    local shown = wasShown[f]
+    wasShown[f] = nil
+    -- QuestMaster's / EllesmereUI's frames that were hidden when we took over
+    -- stay as their addon left them.
+    if not GAME_TRACKER[trackerOf[f][1]] and not shown then return end
     -- Questie keeps the game's tracker hidden itself when its own tracker is on.
     local questieOwns = f ~= _G.Questie_BaseFrame and Questie and Questie.db and Questie.db.profile
         and Questie.db.profile.trackerEnabled
@@ -1698,9 +1710,10 @@ end
 
 local function ApplyTrackerHiding()
     if not db then return end
-    for _, name in ipairs({ "Questie_BaseFrame", "ObjectiveTrackerFrame", "QuestWatchFrame" }) do
-        local f = _G[name]
+    for _, t in ipairs(TRACKERS) do
+        local f = _G[t[1]]
         if f then
+            trackerOf[f] = t
             if not hooked[f] then
                 hooked[f] = true
                 f:HookScript("OnShow", function(self)
@@ -2266,7 +2279,8 @@ RunSlash = function(msg)
         print(PREFIX .. ("options: shown=%s autoHide=%s locked=%s rewards=%s place=%s chain=%s locale=%s"):format(
             tostring(db.shown), tostring(db.autoHide), tostring(db.locked) .. "/size " .. tostring(db.lockSize), tostring(db.showRewards),
             tostring(db.showPlace), tostring(db.showChain), tostring(db.locale)))
-        for _, name in ipairs({ "Questie_BaseFrame", "ObjectiveTrackerFrame", "QuestWatchFrame" }) do
+        for _, t in ipairs(TRACKERS) do
+            local name = t[1]
             local f = _G[name]
             if f then
                 print(PREFIX .. ("%s: shown=%s alpha=%.1f protected=%s hiddenByUs=%s"):format(name,
@@ -2274,8 +2288,8 @@ RunSlash = function(msg)
                     tostring(hiddenByUs[f] or false)))
             end
         end
-        print(PREFIX .. ("hideQuestie=%s hideBlizzard=%s maxQuests=%s"):format(tostring(db.hideQuestie),
-            tostring(db.hideBlizzard), tostring(MaxQuests())))
+        print(PREFIX .. ("hideQuestie=%s hideBlizzard=%s hideQuestMaster=%s hideEllesmere=%s maxQuests=%s"):format(tostring(db.hideQuestie),
+            tostring(db.hideBlizzard), tostring(db.hideQuestMaster), tostring(db.hideEllesmere), tostring(MaxQuests())))
         local pm = C_Map.GetBestMapForUnit("player")
         local iname, itype, _, _, _, _, _, iid = GetInstanceInfo()
         print(PREFIX .. ("instance: name=%s type=%s id=%s | EJ(playerMap)=%s | zoneOf=%s %s"):format(

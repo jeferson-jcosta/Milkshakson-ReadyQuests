@@ -1,7 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
-- New installs hide the game's quest tracker and Questie's tracker by default while the window is shown (Options > Tracker). Existing settings are kept.
+- Also hides **QuestMaster**'s and **EllesmereUI**'s quest trackers while the window is shown (Options > Tracker, one option each; optional, detected by frame name).
+- New installs hide the other trackers (game, Questie, QuestMaster, EllesmereUI) by default while the window is shown. Existing settings are kept; the two new options start on for everyone.
 
 ## 2.10.0
 - Options: "Buy me a coffee" moved to the top of the page, highlighted, with PayPal and PIX buttons that show the link ready to copy (addons can't open the browser). Shared UI library v8.
