@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- New installs hide the game's quest tracker and Questie's tracker by default while the window is shown (Options > Tracker). Existing settings are kept.
+
 ## 2.10.0
 - Options: "Buy me a coffee" moved to the top of the page, highlighted, with PayPal and PIX buttons that show the link ready to copy (addons can't open the browser). Shared UI library v8.
 - Reward upgrade check now prefers stat weights over item level: **Pawn**, else **GearQuest Forever** (stat score for your spec), else item level. A higher item level with worse stats is no longer shown as an upgrade when one of those addons is installed. Configurable in Options > List (Auto / Pawn / GearQuest / Item level); a chosen addon that is not installed falls back to the next. The tooltip says which one decided (e.g. "GearQuest 80 > 50").
