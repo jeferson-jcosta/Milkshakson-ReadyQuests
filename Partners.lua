@@ -28,6 +28,19 @@ local dbg = { sent = 0, got = 0 }
 
 local function Now() return GetTime() end
 
+-- Never touch channels / addon messages inside instances or while the game
+-- locks chat (encounters, Mythic+): blocked calls can make the game offer to
+-- disable addons.
+local function Restricted()
+    if InCombatLockdown and InCombatLockdown() then return true end
+    if IsInInstance and IsInInstance() then return true end
+    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown then
+        local ok, locked = pcall(C_ChatInfo.InChatMessagingLockdown)
+        if ok and locked then return true end
+    end
+    return false
+end
+
 -- ReadyQuestsDB is made by ReadyQuests.lua on ADDON_LOADED (order of the
 -- two handlers is not guaranteed): read it when needed.
 local function Enabled()
@@ -118,7 +131,7 @@ end
 
 local function Join()
     if not Enabled() or ChannelID() then return end
-    if InCombatLockdown and InCombatLockdown() then return end
+    if Restricted() then return end
     joinTried = true
     local join = JoinTemporaryChannel or JoinChannelByName
     if join then pcall(join, CHANNEL) end
@@ -126,14 +139,14 @@ local function Join()
 end
 
 local function Leave()
-    if ChannelID() and LeaveChannelByName and not (InCombatLockdown and InCombatLockdown()) then
+    if ChannelID() and LeaveChannelByName and not Restricted() then
         pcall(LeaveChannelByName, CHANNEL)
     end
 end
 
 local function Send(force)
     if not Enabled() then return end
-    if InCombatLockdown and InCombatLockdown() then return end
+    if Restricted() then return end
     local id = ChannelID()
     if not id then Join() return end
     local now = Now()
