@@ -15,7 +15,7 @@ local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
     width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false, showTaxi = true, upgradeSource = "auto",
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
-    hideQuestie = true, hideBlizzard = true, hideQuestMaster = true, hideEllesmere = true, collapsedWindow = false, avoidFDJ = true }
+    hideQuestie = true, hideBlizzard = true, hideQuestMaster = true, hideEllesmere = true, partners = true, partnersWhisper = true, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
 
 ---------------------------------------------------------------------------
@@ -589,7 +589,8 @@ local function JoinedChannels()
     local stride = (type(list[3]) == "boolean") and 3 or 2
     for i = 1, #list, stride do
         local id, name, disabled = list[i], list[i + 1], stride == 3 and list[i + 2]
-        if type(id) == "number" and type(name) == "string" and not disabled then
+        if type(id) == "number" and type(name) == "string" and not disabled
+            and name:lower() ~= (ns.PARTNER_CHANNEL or ""):lower() then
             out[#out + 1] = { id = id, name = name }
         end
     end
@@ -2269,6 +2270,12 @@ RunSlash = function(msg)
                     type(tag) == "table" and tostring(tag.worldQuestType) or "-", tostring(cls), tostring(sort), tostring(info.frequency)))
             end
         end
+    elseif msg == "debug partners" then
+        for _, l in ipairs(ns.PartnersDebug and ns:PartnersDebug() or {}) do print(PREFIX .. l) end
+    elseif msg == "partners" then
+        db.partners = not db.partners
+        if ns.PartnersToggled then ns:PartnersToggled() end
+        print(PREFIX .. (db.partners and L.PARTNERS_ON or L.PARTNERS_OFF))
     elseif msg == "debug" then
         local pmap = C_Map.GetBestMapForUnit("player")
         local pinfo = pmap and C_Map.GetMapInfo(pmap)
@@ -2330,6 +2337,7 @@ RunSlash = function(msg)
         print(PREFIX .. L.HELP4)
         print(PREFIX .. L.HELP_TAB)
         print(PREFIX .. L.HELP_SHARE)
+        print(PREFIX .. L.HELP_PARTNERS)
         print(PREFIX .. L.HELP_MIN)
         print(PREFIX .. L.HELP_CONFIG)
         print(PREFIX .. L.HELP3:format(table.concat(ns:AvailableLocales(), ", ")))

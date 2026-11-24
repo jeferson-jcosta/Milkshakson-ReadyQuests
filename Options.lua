@@ -44,6 +44,12 @@ function ns:BuildOptions(db)
     UI:Check(p, L.CFG_HIDE_EUI, L.CFG_HIDE_TIP, function() return db.hideEllesmere end, function(v) db.hideEllesmere = v; R() end)
     UI:Check(p, L.CFG_AVOID_FDJ, L.CFG_AVOID_FDJ_TIP, function() return db.avoidFDJ end, function(v) db.avoidFDJ = v; R() end)
 
+    UI:Section(p, L.CFG_PARTNERS)
+    UI:Check(p, L.CFG_PARTNERS_ON, L.CFG_PARTNERS_TIP, function() return db.partners end,
+        function(v) db.partners = v; if ns.PartnersToggled then ns:PartnersToggled() end end)
+    UI:Check(p, L.CFG_PARTNERS_WHISPER, L.CFG_PARTNERS_WHISPER_TIP, function() return db.partnersWhisper end,
+        function(v) db.partnersWhisper = v end)
+
     UI:Section(p, L.CFG_ROUTE)
     UI:Buttons(p, {
         { L.ROUTE_BTN, function() SlashCmdList.READYQUESTS("route") end, L.ROUTE_TIP },
