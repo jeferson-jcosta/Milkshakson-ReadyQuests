@@ -1,6 +1,6 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.10.1
 - Also hides **QuestMaster**'s and **EllesmereUI**'s quest trackers while the window is shown (Options > Tracker, one option each; optional, detected by frame name).
 - New installs hide the other trackers (game, Questie, QuestMaster, EllesmereUI) by default while the window is shown. Existing settings are kept; the two new options start on for everyone.
 
