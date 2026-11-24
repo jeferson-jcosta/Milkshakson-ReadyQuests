@@ -1077,8 +1077,8 @@ search:HookScript("OnEditFocusLost", function(self)
     if strtrim(self:GetText() or "") == "" and searchOpen then SetSearchOpen(false) end
 end)
 
-local searchBtn = CreateFrame("Button", nil, frame)
-searchBtn:SetSize(16, 16)
+local searchBtn = CreateFrame("Button", "ReadyQuestsSearchButton", frame)
+searchBtn:SetSize(14, 14)
 local sicon = searchBtn:CreateTexture(nil, "ARTWORK")
 sicon:SetAllPoints()
 sicon:SetTexture("Interface\\Common\\UI-Searchbox-Icon")
@@ -1091,6 +1091,21 @@ searchBtn:SetScript("OnEnter", function(self)
     GameTooltip:Show()
 end)
 searchBtn:SetScript("OnLeave", GameTooltip_Hide)
+
+-- Options button (gear), next to the search button
+local configBtn = CreateFrame("Button", "ReadyQuestsConfigButton", frame)
+configBtn:SetSize(14, 14)
+local cicon = configBtn:CreateTexture(nil, "ARTWORK")
+cicon:SetAllPoints()
+cicon:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+configBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+configBtn:SetScript("OnClick", function() if ns.OpenOptions then ns:OpenOptions() end end)
+configBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(L.CONFIG_BTN)
+    GameTooltip:Show()
+end)
+configBtn:SetScript("OnLeave", GameTooltip_Hide)
 
 -- Scrollable list area (mouse wheel) -------------------------------------
 local scroll = CreateFrame("ScrollFrame", nil, frame)
@@ -1926,8 +1941,11 @@ function Refresh()
     shareBtn:ClearAllPoints()
     shareBtn:SetPoint("RIGHT", routeBtn:IsShown() and routeBtn or close, "LEFT", -2, 0)
     shareBtn:SetShown(InDungeonGroup())
+    -- Small icons centered on the title line (the close button sits 3 px higher).
+    configBtn:ClearAllPoints()
+    configBtn:SetPoint("RIGHT", (shareBtn:IsShown() and shareBtn) or (routeBtn:IsShown() and routeBtn) or close, "LEFT", -4, -3)
     searchBtn:ClearAllPoints()
-    searchBtn:SetPoint("RIGHT", (shareBtn:IsShown() and shareBtn) or (routeBtn:IsShown() and routeBtn) or close, "LEFT", -3, 0)
+    searchBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
 
     local i, y = 0, 0
     for _, g in ipairs(groups) do
@@ -1963,6 +1981,7 @@ function Refresh()
     scroll:SetShown(not collapsed)
     search:SetShown(searchOpen and not collapsed)
     searchBtn:SetShown(not collapsed)
+    configBtn:SetShown(true)
     sicon:SetVertexColor(1, searchText ~= "" and 0.82 or 1, searchText ~= "" and 0 or 1) -- yellow while filtering
     if collapsed then empty:Hide() end
     grip:SetShown(not db.lockSize and not collapsed)

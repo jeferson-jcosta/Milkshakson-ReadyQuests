@@ -1,7 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
-- **Quest partners:** players with Ready Quests in the same zone who have the same kill quest or group/elite quest find each other. A box shows who and which quest, with **Invite** / **Whisper**; one of the two (never both) whispers the other automatically (option, at most once per player every 15 min). Talks over a hidden chat channel (`MilkshaksonRQ`) with addon messages: only the zone and quest IDs are sent. Options > Quest partners (on by default), `/rq partners`, `/rq debug partners`.
+- **Quest partners (BETA):** players with Ready Quests in the same zone who have the same kill quest or group/elite quest find each other. A box shows who and which quest, with **Invite** / **Whisper**; one of the two (never both) whispers the other automatically (option, at most once per player every 15 min). Talks over a hidden chat channel (`MilkshaksonRQ`) with addon messages: only the zone and quest IDs are sent. Options > Quest partners (on by default), `/rq partners`, `/rq debug partners`. BETA: not yet confirmed in game that Forever delivers addon messages on a custom channel.
+- Title bar: **Options** button (gear) next to the search button; both icons are now centered on the title line.
 
 ## 2.10.1
 - Also hides **QuestMaster**'s and **EllesmereUI**'s quest trackers while the window is shown (Options > Tracker, one option each; optional, detected by frame name).
