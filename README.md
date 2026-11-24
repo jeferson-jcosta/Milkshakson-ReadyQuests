@@ -36,7 +36,7 @@ A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs fo
 - **Zone**: only the quests of the zone you are in, ready ones first.
 - **All**: your whole log, grouped by zone.
 
-Click the magnifier in the title bar to search: filters every tab by quest name, objectives or zone; Esc closes it. Click a group header to collapse it. A small grey gryphon (Alliance) or wyvern (Horde) on a zone header means that zone has a flight point you haven't discovered yet: hover for the list, click for a waypoint. Right-click a quest for a menu (go there, map, track, share, ask for help, abandon). Inside a dungeon, in a group, a **Share** button shares this dungeon's quests (right-click: every shareable quest); `/rq share [all]`. **Ask for help** posts the quest link and what is still missing in party/raid, a chat channel you joined (General, LookingForGroup...) or /say. In a group with room, **LFM** posts the quest and your group size (e.g. 3/5) to look for more players. The window replaces the game's, Questie's, QuestMaster's and EllesmereUI's quest trackers while it is shown (on by default; see the Tracker options).
+Click the magnifier in the title bar to search: filters every tab by quest name, objectives or zone; Esc closes it. Click a group header to collapse it. A small grey gryphon (Alliance) or wyvern (Horde) on a zone header means that zone has a flight point you haven't discovered yet: hover for the list, click for a waypoint. Right-click a quest for a menu (go there, map, track, share, ask for help, abandon). Inside a dungeon, in a group, a **Share** button shares this dungeon's quests (right-click: every shareable quest); `/rq share [all]`. **Ask for help** posts the quest link and what is still missing in party/raid, a chat channel you joined (General, LookingForGroup...) or /say. In a group with room, **LFM** posts the quest and your group size (e.g. 3/5) to look for more players. The window replaces the game's, Questie's, QuestMaster's and EllesmereUI's quest trackers while it is shown (on by default; see the Tracker options). Only the tracker is hidden: QuestMaster's arrow, world marker, map pins, guide window, item bar and voices keep working (the guide/stage/route blocks inside its tracker go with it).
 
 ## Options
 Options > AddOns > **Milkshakson > Ready Quests**, or `/mrq config` (also `/rq config`), or right-click the addon button next to the minimap. From there you can:
@@ -77,6 +77,7 @@ Upgrade check: with **Pawn** installed, its verdict is used. Otherwise the addon
 - **TomTom**: used for waypoints when Shortest Path Forever is not installed.
 - **Pawn**: used for upgrade detection (the green arrow), and its tooltip lines show when you hover an item.
 - **GearQuest Forever**: it has no public API, so its slot-ranking line shows in the item tooltip when you hover a reward icon.
+- **Questie, QuestMaster, EllesmereUI**: their quest trackers are hidden while the window is shown (one option each, on by default). Everything else of those addons keeps working.
 
 ## Languages
 The default language is English. With `auto` (the default), the addon follows your game client's language when a pack for it exists.
