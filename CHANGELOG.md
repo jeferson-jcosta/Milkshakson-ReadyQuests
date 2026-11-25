@@ -1,6 +1,6 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.11.1
 - Quest partners: nothing is sent and the hidden channel is not joined inside instances or while the game locks chat (encounters), so a blocked call can't make the game offer to disable addons.
 
 ## 2.11.0
