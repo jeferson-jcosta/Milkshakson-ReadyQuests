@@ -49,11 +49,26 @@ function ns:BuildOptions(db)
         function(v) db.partners = v; if ns.PartnersToggled then ns:PartnersToggled() end end)
     UI:Check(p, L.CFG_PARTNERS_WHISPER, L.CFG_PARTNERS_WHISPER_TIP, function() return db.partnersWhisper end,
         function(v) db.partnersWhisper = v end)
+    UI:Buttons(p, {
+        { L.CFG_DBG_PARTNERS, function() SlashCmdList.READYQUESTS("debug partners") end, L.CFG_DBG_TIP },
+    })
 
     UI:Section(p, L.CFG_ROUTE)
     UI:Buttons(p, {
         { L.ROUTE_BTN, function() SlashCmdList.READYQUESTS("route") end, L.ROUTE_TIP },
         { L.CFG_ROUTE_HERE, function() SlashCmdList.READYQUESTS("route here") end, L.ROUTE_TIP_RIGHT },
+    })
+
+    UI:Section(p, L.CFG_DIAG)
+    UI:Note(p, L.CFG_DIAG_NOTE)
+    UI:Buttons(p, {
+        { L.CFG_DBG_GENERAL, function() SlashCmdList.READYQUESTS("debug") end, L.CFG_DBG_TIP },
+        { L.CFG_DBG_TAXI, function() SlashCmdList.READYQUESTS("debug taxi") end, L.CFG_DBG_TIP },
+        { L.CFG_DBG_KIND, function() SlashCmdList.READYQUESTS("debug kind") end, L.CFG_DBG_TIP },
+    })
+    UI:Buttons(p, {
+        { L.CFG_LIST_CHAT, function() SlashCmdList.READYQUESTS("list") end },
+        { L.CFG_HELP_CHAT, function() SlashCmdList.READYQUESTS("help") end },
     })
 
     UI:Section(p, L.CFG_LANGUAGE)

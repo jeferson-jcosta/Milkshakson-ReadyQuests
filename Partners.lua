@@ -238,7 +238,8 @@ local function Offer(peer, questID, flags)
     b.invite:SetShown(CanInvite())
     b:Show()
     if PlaySound and SOUNDKIT and SOUNDKIT.TELL_MESSAGE then pcall(PlaySound, SOUNDKIT.TELL_MESSAGE) end
-    print(PREFIX_CHAT .. L.PARTNER_TEXT:format(ShortName(peer.name), QuestLink(questID), tag))
+    local line = L.PARTNER_TEXT:format(ShortName(peer.name), QuestLink(questID), tag)
+    if ns.Say then ns.Say(line) else print(PREFIX_CHAT .. line) end
 end
 ns.PartnerBox = function() return box end
 

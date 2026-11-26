@@ -5,6 +5,22 @@
 local ADDON, ns = ...
 local L = ns.L
 local PREFIX = "|cff33ff99[ReadyQuests]|r "
+
+-- Messages also go to Milkshakson-Phone's "Milkshakson-Addons" chat when it is
+-- installed (optional): Phone replaces the game's chat, so print() is not seen.
+local function ToPhone(text)
+    if ns.capturing or type(MilkshaksonPhone_AddonMessage) ~= "function" then return end
+    pcall(MilkshaksonPhone_AddonMessage, "ReadyQuests", text)
+end
+local function Say(text)
+    print(PREFIX .. text)
+    ToPhone(text)
+end
+local function Out(text)
+    print(text)
+    ToPhone(text)
+end
+ns.Say = Say
 local ROW_H, HEADER_H, OBJ_H, WIDTH = 18, 18, 14, 300
 local TOP_BASE = 48 -- header + tab bar
 local SEARCH_H = 20
@@ -489,7 +505,7 @@ end
 
 local function NavigateTo(q)
     if not q.map then
-        print(PREFIX .. (q.ready and L.NO_COORDS or L.NO_COORDS_OBJ))
+        Say((q.ready and L.NO_COORDS or L.NO_COORDS_OBJ))
         OpenOnMap(q)
         return
     end
@@ -502,7 +518,7 @@ local function NavigateTo(q)
             handins = q.ready and { q.id } or nil,
         } })
         if ok and started then return end
-        print(PREFIX .. L.ROUTE_FAILED)
+        Say(L.ROUTE_FAILED)
     elseif TomTom and TomTom.AddWaypoint then
         TomTom:AddWaypoint(q.map, q.x, q.y, { title = q.title, questID = q.id, from = OWNER, crazy = true })
         return
@@ -548,7 +564,7 @@ local function ShareQuest(q)
         SelectQuestLogEntry(GetQuestLogIndexByID(q.id))
     end
     local ok = pcall(QuestLogPushQuest)
-    if ok then print(PREFIX .. L.SHARE_SENT:format(q.title or "?")) end
+    if ok then Say(L.SHARE_SENT:format(q.title or "?")) end
 end
 
 local function AbandonQuest(q)
@@ -616,7 +632,7 @@ local function AskForHelp(q, chatType, channel, lfm)
     local key = (lfm and "lfm:" or "") .. chatType .. (channel or "")
     local now = GetTime()
     if lastHelp[key] and now - lastHelp[key] < HELP_COOLDOWN then
-        print(PREFIX .. L.HELP_WAIT:format(math.ceil(HELP_COOLDOWN - (now - lastHelp[key]))))
+        Say(L.HELP_WAIT:format(math.ceil(HELP_COOLDOWN - (now - lastHelp[key]))))
         return
     end
     lastHelp[key] = now
@@ -681,7 +697,7 @@ end
 local function RouteAll(onlyHere)
     local api = SPF()
     if not (api and api.NavigateRoute) then
-        print(PREFIX .. L.NEED_SPF)
+        Say(L.NEED_SPF)
         return
     end
     local groups, _, pmap, px, py = GetReadyQuests()
@@ -710,7 +726,7 @@ local function RouteAll(onlyHere)
         end
     end
     if #stops == 0 then
-        print(PREFIX .. L.ROUTE_NONE)
+        Say(L.ROUTE_NONE)
         return
     end
 
@@ -738,9 +754,9 @@ local function RouteAll(onlyHere)
     end
     local ok, started = pcall(api.NavigateRoute, OWNER, route)
     if ok and started then
-        print(PREFIX .. L.ROUTE_STARTED:format(#route))
+        Say(L.ROUTE_STARTED:format(#route))
     else
-        print(PREFIX .. L.ROUTE_FAILED)
+        Say(L.ROUTE_FAILED)
     end
 end
 
@@ -880,7 +896,7 @@ close:SetPoint("TOPRIGHT", 0, 0)
 close:SetScript("OnClick", function()
     db.shown = false
     frame:Hide()
-    print(PREFIX .. L.HIDDEN)
+    Say(L.HIDDEN)
 end)
 
 -- "Route" button (only with Shortest Path Forever)
@@ -921,7 +937,7 @@ end
 
 local function ShareMany(dungeonOnly)
     local list = ShareableQuests(dungeonOnly)
-    if #list == 0 then print(PREFIX .. L.SHARE_NONE); return end
+    if #list == 0 then Say(L.SHARE_NONE); return end
     for _, q in ipairs(list) do shareQueue[#shareQueue + 1] = q end
     if not sharing then sharing = true; ShareNext() end
 end
@@ -2098,7 +2114,7 @@ local function Toggle()
     db.shown = not db.shown
     if db.shown and db.autoHide then
         local counts = select(6, GetQuests("all"))
-        if counts.all == 0 then print(PREFIX .. L.NONE_NOW) end
+        if counts.all == 0 then Say(L.NONE_NOW) end
     end
     Refresh()
 end
@@ -2163,7 +2179,9 @@ SlashCmdList.READYQUESTS = function(msg)
             lines[#lines + 1] = (table.concat(t, " "):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
             orig(...)
         end
+        ns.capturing = true
         local ok, err = pcall(RunSlash, msg)
+        ns.capturing = false
         print = orig
         if not ok then geterrorhandler()(err) end
         local text = table.concat(lines, "\n")
@@ -2177,17 +2195,17 @@ end
 RunSlash = function(msg)
     if msg == "lock" then
         db.locked = not db.locked
-        print(PREFIX .. (db.locked and L.LOCKED or L.UNLOCKED))
+        Say((db.locked and L.LOCKED or L.UNLOCKED))
         Refresh()
     elseif msg == "lock size" or msg == "locksize" then
         db.lockSize = not db.lockSize
-        print(PREFIX .. (db.lockSize and L.SIZE_LOCKED or L.SIZE_UNLOCKED))
+        Say((db.lockSize and L.SIZE_LOCKED or L.SIZE_UNLOCKED))
         Refresh()
     elseif msg == "min" or msg == "collapse" or msg == "recolher" then
         ToggleCollapsed()
     elseif msg == "auto" then
         db.autoHide = not db.autoHide
-        print(PREFIX .. L.AUTOHIDE:format(db.autoHide and L.ON or L.OFF))
+        Say(L.AUTOHIDE:format(db.autoHide and L.ON or L.OFF))
         Refresh()
     elseif msg == "reset" then
         db.point = nil
@@ -2195,7 +2213,7 @@ RunSlash = function(msg)
         dock.active, dock.userMoved = false, false
         HomePoint()
         UpdateDock()
-        print(PREFIX .. L.RESET)
+        Say(L.RESET)
     elseif msg:match("^tab") then
         local arg = strtrim(msg:sub(4))
         local alias = { ready = "ready", prontas = "ready", progress = "progress", active = "progress",
@@ -2206,7 +2224,7 @@ RunSlash = function(msg)
             db.shown = true
             Refresh()
         else
-            print(PREFIX .. L.HELP_TAB)
+            Say(L.HELP_TAB)
         end
     elseif msg == "share" then
         ShareMany(true)
@@ -2218,12 +2236,12 @@ RunSlash = function(msg)
         RouteAll(true)
     elseif msg == "list" then
         local groups, total = GetReadyQuests()
-        print(PREFIX .. L.LIST_HEADER:format(total))
+        Say(L.LIST_HEADER:format(total))
         for _, g in ipairs(groups) do
-            print("|cffffd100" .. g.title .. "|r")
+            Out("|cffffd100" .. g.title .. "|r")
             for _, q in ipairs(g.quests) do
                 local extra = FormatDist(q.dist)
-                print("  - " .. q.title .. (extra ~= "" and (" |cff999999(" .. extra .. ")|r") or ""))
+                Out("  - " .. q.title .. (extra ~= "" and (" |cff999999(" .. extra .. ")|r") or ""))
             end
         end
     elseif msg:match("^lang") then
@@ -2231,11 +2249,11 @@ RunSlash = function(msg)
         local available = table.concat(ns:AvailableLocales(), ", ")
         local function Name(c) return ns.Locales[c]._name end
         if arg == "" then
-            print(PREFIX .. L.HELP3:format(available))
+            Say(L.HELP3:format(available))
         elseif arg == "auto" then
             db.locale = nil
             local c = ns:ApplyLocale(nil)
-            print(PREFIX .. L.LANG_AUTO:format(Name(c), c))
+            Say(L.LANG_AUTO:format(Name(c), c))
         else
             local code
             for c in pairs(ns.Locales) do
@@ -2244,9 +2262,9 @@ RunSlash = function(msg)
             if code then
                 db.locale = code
                 ns:ApplyLocale(code)
-                print(PREFIX .. L.LANG_SET:format(Name(code), code))
+                Say(L.LANG_SET:format(Name(code), code))
             else
-                print(PREFIX .. L.LANG_UNKNOWN:format(arg, available))
+                Say(L.LANG_UNKNOWN:format(arg, available))
             end
         end
         Refresh()
@@ -2290,35 +2308,35 @@ RunSlash = function(msg)
             end
         end
     elseif msg == "debug partners" then
-        for _, l in ipairs(ns.PartnersDebug and ns:PartnersDebug() or {}) do print(PREFIX .. l) end
+        for _, l in ipairs(ns.PartnersDebug and ns:PartnersDebug() or {}) do Say(l) end
     elseif msg == "partners" then
         db.partners = not db.partners
         if ns.PartnersToggled then ns:PartnersToggled() end
-        print(PREFIX .. (db.partners and L.PARTNERS_ON or L.PARTNERS_OFF))
+        Say((db.partners and L.PARTNERS_ON or L.PARTNERS_OFF))
     elseif msg == "debug" then
         local pmap = C_Map.GetBestMapForUnit("player")
         local pinfo = pmap and C_Map.GetMapInfo(pmap)
         local inInst, instType = IsInInstance()
-        print(PREFIX .. ("player map %s (%s, type %s), instance: %s %s, EJ: %s"):format(
+        Say(("player map %s (%s, type %s), instance: %s %s, EJ: %s"):format(
             tostring(pmap), pinfo and pinfo.name or "?", pinfo and tostring(pinfo.mapType) or "?",
             tostring(inInst), tostring(instType), tostring(EJ_GetInstanceForMap ~= nil)))
-        print(PREFIX .. ("options: shown=%s autoHide=%s locked=%s rewards=%s place=%s chain=%s locale=%s"):format(
+        Say(("options: shown=%s autoHide=%s locked=%s rewards=%s place=%s chain=%s locale=%s"):format(
             tostring(db.shown), tostring(db.autoHide), tostring(db.locked) .. "/size " .. tostring(db.lockSize), tostring(db.showRewards),
             tostring(db.showPlace), tostring(db.showChain), tostring(db.locale)))
         for _, t in ipairs(TRACKERS) do
             local name = t[1]
             local f = _G[name]
             if f then
-                print(PREFIX .. ("%s: shown=%s alpha=%.1f protected=%s hiddenByUs=%s"):format(name,
+                Say(("%s: shown=%s alpha=%.1f protected=%s hiddenByUs=%s"):format(name,
                     tostring(f:IsShown()), f:GetAlpha() or -1, tostring(f.IsProtected and f:IsProtected()),
                     tostring(hiddenByUs[f] or false)))
             end
         end
-        print(PREFIX .. ("hideQuestie=%s hideBlizzard=%s hideQuestMaster=%s hideEllesmere=%s maxQuests=%s"):format(tostring(db.hideQuestie),
+        Say(("hideQuestie=%s hideBlizzard=%s hideQuestMaster=%s hideEllesmere=%s maxQuests=%s"):format(tostring(db.hideQuestie),
             tostring(db.hideBlizzard), tostring(db.hideQuestMaster), tostring(db.hideEllesmere), tostring(MaxQuests())))
         local pm = C_Map.GetBestMapForUnit("player")
         local iname, itype, _, _, _, _, _, iid = GetInstanceInfo()
-        print(PREFIX .. ("instance: name=%s type=%s id=%s | EJ(playerMap)=%s | zoneOf=%s %s"):format(
+        Say(("instance: name=%s type=%s id=%s | EJ(playerMap)=%s | zoneOf=%s %s"):format(
             tostring(iname), tostring(itype), tostring(iid), tostring(EJInstance(pm)),
             tostring(ZoneOf(pm)), tostring(MapName(ZoneOf(pm)))))
         local groups = GetQuests("all")
@@ -2351,15 +2369,15 @@ RunSlash = function(msg)
     elseif msg == "config" or msg == "options" or msg == "opcoes" then
         ns:OpenOptions()
     elseif msg == "help" then
-        print(PREFIX .. L.HELP1)
-        print(PREFIX .. L.HELP2)
-        print(PREFIX .. L.HELP4)
-        print(PREFIX .. L.HELP_TAB)
-        print(PREFIX .. L.HELP_SHARE)
-        print(PREFIX .. L.HELP_PARTNERS)
-        print(PREFIX .. L.HELP_MIN)
-        print(PREFIX .. L.HELP_CONFIG)
-        print(PREFIX .. L.HELP3:format(table.concat(ns:AvailableLocales(), ", ")))
+        Say(L.HELP1)
+        Say(L.HELP2)
+        Say(L.HELP4)
+        Say(L.HELP_TAB)
+        Say(L.HELP_SHARE)
+        Say(L.HELP_PARTNERS)
+        Say(L.HELP_MIN)
+        Say(L.HELP_CONFIG)
+        Say(L.HELP3:format(table.concat(ns:AvailableLocales(), ", ")))
     else
         Toggle()
     end

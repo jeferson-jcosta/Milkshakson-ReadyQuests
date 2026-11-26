@@ -1,5 +1,9 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Messages also appear in **Milkshakson-Phone**'s "Milkshakson-Addons" chat when Phone is installed (optional) — Phone replaces the game's chat, so they were invisible there.
+- Options > **Diagnostics**: buttons for `/rq debug`, `debug taxi`, `debug kind`, `list` and `help`; Quest partners has a "Partners diagnostics" button (`/rq debug partners`).
+
 ## 2.11.1
 - Quest partners: nothing is sent and the hidden channel is not joined inside instances or while the game locks chat (encounters), so a blocked call can't make the game offer to disable addons.
 
