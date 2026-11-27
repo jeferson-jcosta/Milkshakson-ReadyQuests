@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- **Alliance / Horde theme** for the windows (Options > Appearance: my faction / Alliance blue / Horde red), like Trader and Phone.
+
 ## 2.13.0
 - Money shows with the gold / silver / copper coin icons, like the bags.
 - **What's new** popup: after an update, the release notes of the new version show once (Options > "What's new" shows them again; a checkbox turns it off). MilkshaksonUI v10.

@@ -778,6 +778,7 @@ frame:SetBackdrop({
 })
 frame:SetBackdropColor(0, 0, 0, 0.75)
 frame:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+if ns.Theme then ns.Theme:Skin(frame, "window", 0, 0.75) end   -- keeps its transparency, no crest
 frame:Hide()
 
 frame:SetScript("OnDragStart", function(self)
@@ -867,6 +868,7 @@ ns.UpdateDock = function() UpdateDock() end
 -- on the same line, TITLE_Y below the top edge.
 local TITLE_Y = -13
 local header = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+if ns.Theme then ns.Theme:Skin(header, "title") end
 header:SetPoint("LEFT", frame, "TOPLEFT", 24, TITLE_Y)
 
 -- Collapse / expand button (like Questie's tracker): keeps only the title bar.
@@ -2131,6 +2133,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
             if db[k] == nil then db[k] = type(v) == "table" and {} or v end
         end
         ns:ApplyLocale(db.locale)
+        if ns.Theme then ns.Theme:Init(db); ns.Theme:Apply() end
         if ns.BuildOptions and not ns.optionsCategory then ns:BuildOptions(db) end
         HomePoint()
         return
@@ -2172,6 +2175,7 @@ local function ShowCopy(text)
                 insets = { left = 3, right = 3, top = 3, bottom = 3 } })
             f:SetBackdropColor(0, 0, 0, 0.92)
         end
+        if ns.Theme then ns.Theme:Skin(f, "window", 160) end
         f:EnableMouse(true)
         f:SetMovable(true)
         f:RegisterForDrag("LeftButton")

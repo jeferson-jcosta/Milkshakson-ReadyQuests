@@ -18,6 +18,7 @@ Locales\enUS.lua
 
 # Language packs (optional — remove a line or delete the file to drop a language)
 Locales\ptBR.lua
+Theme.lua
 
 Rewards.lua
 Extra.lua

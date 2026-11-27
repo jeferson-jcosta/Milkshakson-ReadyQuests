@@ -221,6 +221,7 @@ local function Box()
     end
     box.invite = Btn(L.PARTNER_INVITE, 10)
     box.whisper = Btn(L.PARTNER_WHISPER_BTN, 112)
+    if ns.Theme then ns.Theme:Skin(box, "window", 0); ns.Theme:Skin(box, "tree") end
     box.close = CreateFrame("Button", nil, box, "UIPanelCloseButton")
     box.close:SetPoint("TOPRIGHT", 2, 2)
     box.close:SetScript("OnClick", function() box:Hide() end)
