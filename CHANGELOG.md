@@ -1,6 +1,6 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.12.0
 - Title bar: collapse button, title, search, options gear and close button all centered on the same line.
 - Messages also appear in **Milkshakson-Phone**'s "Milkshakson-Addons" chat when Phone is installed (optional) — Phone replaces the game's chat, so they were invisible there.
 - Options > **Diagnostics**: buttons for `/rq debug`, `debug taxi`, `debug kind`, `list` and `help`; Quest partners has a "Partners diagnostics" button (`/rq debug partners`).
