@@ -1,100 +1,73 @@
-# Ready Quests (WoW: Forever)
+# Milkshakson - Ready Quests
 
-A quest tracker for WoW: Forever, built around what is ready to turn in. Tabs for quests ready to turn in, quests in progress (with objectives), your current zone and the whole log. Updates automatically.
+**Quest tracker for WoW: Forever built around what you can turn in right now** — easiest turn-in first, rewards and upgrades at a glance, one-click routes.
 
-## Install
-1. Close the game.
-2. Copy the `Milkshakson-ReadyQuests` folder to `World of Warcraft\_forever_\Interface\AddOns\`.
-3. Enable **Milkshakson - Ready Quests** on the AddOns screen.
-
-## Usage
-| Command | Action |
-|---|---|
-| `/rq` (or `/mrq`, `/readyquests`, `/entregar`) | Show/hide the window. Every `/rq` command also works as `/mrq` |
-| `/rq list` | List in chat |
-| `/rq lock` | Lock/unlock position |
-| `/rq lock size` | Lock/unlock size (hides the resize grip) |
-| `/rq auto` | Toggle "hide when the quest log is empty" (default: on) |
-| `/rq reset` | Reset window position and size |
-| `/rq lang <code\|auto>` | Set language (e.g. `/rq lang ptbr`, `/rq lang enus`, `/rq lang auto`) |
-
-| `/rq min` | Collapse/expand the window (also the +/- button at its top-left) |
-| `/rq tab <ready\|active\|zone\|all>` | Switch tab (also `prontas`, `andamento`, `zona`, `todas`) |
-| `/rq route` | Plan one journey through every turn-in (Shortest Path Forever) |
-| `/rq route here` | Same, only turn-ins on the current map |
-
-- Quests are grouped by turn-in zone. Groups are sorted by **the easiest turn-in**: travel time with Shortest Path Forever, otherwise straight-line distance. A turn-in in the next zone can come before "On this map" when it is closer. Inside each group, quests are sorted the same way. Distance/travel time on the rows is optional (off by default; always in the tooltip); quests with a usable item get a button on the right to use it, like the game's tracker.
-- **Click**: open the quest on the map.
-- **Right-click**: menu. **Go there** plans a journey to the turn-in (Shortest Path Forever if installed, otherwise a TomTom waypoint, otherwise it super-tracks the quest); also track, share, ask for help, abandon.
-- **Shift-click**: insert the quest link in chat.
-- **Route** button (left-click: all quests, right-click: this map only): one journey with nearest-first stops. Quests turned in at the same spot become one stop.
-- Drag to move. Drag the bottom-right corner to resize: the window keeps the width and height you set (the option "Shrink the window to fit the list" makes it shrink to the list again, up to that height). The window is pinned by its top-left corner. The mouse wheel scrolls when the list is longer. `/rq lock size` (or the "Lock size" option) hides the grip; `/rq lock` only locks the position.
+![WoW: Forever](https://img.shields.io/badge/WoW-Forever%201.60.1-orange) ![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Languages](https://img.shields.io/badge/lang-English%20%7C%20Portugu%C3%AAs-green)
 
 ## Tabs
-- **Ready**: quests ready to turn in, easiest turn-in first (distance, travel time, rewards).
-- **Active**: quests in progress with their objectives (`Wolves slain: 4/8`), nearest first.
-- **Zone**: only the quests of the zone you are in, ready ones first.
-- **All**: your whole log, grouped by zone.
+- **Ready:** complete quests, easiest turn-in first.
+- **Active:** quests in progress with their objectives (`Wolves slain: 4/8`), nearest first.
+- **Zone** and **All:** the zone you are in, or your whole log with the count (`28/40`).
 
-Click the magnifier in the title bar to search: filters every tab by quest name, objectives or zone; Esc closes it. Click a group header to collapse it. A small grey gryphon (Alliance) or wyvern (Horde) on a zone header means that zone has a flight point you haven't discovered yet: hover for the list, click for a waypoint. Right-click a quest for a menu (go there, map, track, share, ask for help, abandon). Inside a dungeon, in a group, a **Share** button shares this dungeon's quests (right-click: every shareable quest); `/rq share [all]`. **Ask for help** posts the quest link and what is still missing in party/raid, a chat channel you joined (General, LookingForGroup...) or /say. In a group with room, **LFM** posts the quest and your group size (e.g. 3/5) to look for more players. The window replaces the game's, Questie's, QuestMaster's and EllesmereUI's quest trackers while it is shown (on by default; see the Tracker options). Only the tracker is hidden: QuestMaster's arrow, world marker, map pins, guide window, item bar and voices keep working (the guide/stage/route blocks inside its tracker go with it).
+## Rewards at a glance
+- `Lv+` when the turn-in levels you up, XP and gold.
+- Item icons with a **green arrow on upgrades** (Pawn, GearQuest Forever or item level).
+- **Gold icon** on rewards that are not an upgrade but are worth good money (vendor price, or the Auction House price with Auctionator).
 
-## Options
-Options > AddOns > **Milkshakson > Ready Quests**, or `/mrq config` (also `/rq config`), or right-click the addon button next to the minimap. From there you can:
-- Show, auto-hide, lock the position and lock the size of the window, and set its width and maximum height.
-- Toggle the rewards, dungeon/cave and chain indicators.
-- Start a route.
-- Pick the language.
+## Where to go
+- Tags for turn-ins inside a **dungeon** or **cave**, group quests and **quest chains** (`Chain 2/4`).
+- Click a quest to travel there (Shortest Path Forever, TomTom or the game's tracking); **Route** goes through every turn-in, nearest first.
+- **Quest partners** (beta): players on the same quest near you, with Invite / Whisper.
 
-## Turn-in place and chains
-| Tag | Meaning |
-|---|---|
-| `Dungeon` (orange) | The turn-in spot is inside an instance |
-| `Cave` (tan) | The turn-in spot is inside a cave or a building interior |
-| chain icon + `2/4` | The quest is step 2 of a 4-step chain (just `3` = step 3, length unknown); the tooltip names the previous and next quest |
+## Your way
+- Replaces the game's, Questie's, QuestMaster's and EllesmereUI's trackers (one option each).
+- Resizable, movable, **Alliance / Horde** colors, **What's new** after each update, English and Português.
 
-The place comes from the map at the turn-in spot. Chains come from the game's quest lines, from Forever Dungeon Journal's chains when it is installed, and from what you play: when an NPC gives you a quest right after you turn one in to it, the two are linked (remembered for all your characters). Questie is not used.
+## Commands
+| Command | |
+| --- | --- |
+| `/rq` (`/mrq`) | show / hide |
+| `/rq route` | plan the route |
+| `/rq config` | options |
+| `/rq help` | all commands |
 
-## Reward indicators
-Each row shows compact tags:
+Every command is also a button in the addon's window or options page (Options > AddOns > Milkshakson).
 
-| Tag | Meaning |
-|---|---|
-| `Lv+` (green) | Turning this quest in levels you up |
-| `XP` (blue) | Gives XP (hidden at max level) |
-| gold coin | Gives gold |
-| item icons | Each item reward and choice (up to 4, upgrades first). A green arrow marks an upgrade; red means you can't use it |
+## Optional integrations
+Shortest Path Forever, TomTom, Pawn, GearQuest Forever, Auctionator, Questie, QuestMaster, EllesmereUI, Forever Dungeon Journal, Milkshakson-Phone. Everything works with the game alone.
 
-**Hover an item icon** to see the game's own item tooltip. Lines added by Pawn and GearQuest Forever show up there, such as Pawn's stat score and GearQuest's slot ranking. Hold **Shift** to compare with your equipped gear. **Shift-click** links the item in chat; **Ctrl-click** opens it in the dressing room.
+## Install
+CurseForge app, or download the zip from [Releases](../../releases) and extract it into `World of Warcraft\_forever_\Interface\AddOns`.
 
-The header shows `+N Lv` when turning in everything would level you up. N is an estimate based on the size of your current level.
+---
 
-The tooltip lists everything: XP amount and % of a level, gold, each item and choice with its upgrade reason, and currencies.
+## Português (Brasil)
 
-Upgrade check: with **Pawn** installed, its verdict is used. Otherwise the addon compares item level with the weakest item equipped in that slot (an empty slot counts as an upgrade) and never suggests a lighter armor type than the one you wear in that slot.
+**Tracker de quests para o WoW: Forever focado no que você pode entregar agora** — entrega mais fácil primeiro, recompensas e upgrades à vista, rotas com um clique.
 
-## Integrations (optional)
-- **Shortest Path Forever**: uses its public API (`ShortestPathForever.API`): `Estimate` for travel time and `NavigateRoute` for journeys, with `kind = "turnin"` and `handins`.
-- **TomTom**: used for waypoints when Shortest Path Forever is not installed.
-- **Pawn**: used for upgrade detection (the green arrow), and its tooltip lines show when you hover an item.
-- **GearQuest Forever**: it has no public API, so its slot-ranking line shows in the item tooltip when you hover a reward icon.
-- **Questie, QuestMaster, EllesmereUI**: their quest trackers are hidden while the window is shown (one option each, on by default). Everything else of those addons keeps working.
+### Abas
+- **Prontas:** quests completas, entrega mais fácil primeiro.
+- **Andamento:** quests em progresso com os objetivos (`Lobos mortos: 4/8`), as mais perto primeiro.
+- **Zona** e **Todas:** a zona onde você está, ou o log inteiro com a contagem (`28/40`).
 
-## Languages
-The default language is English. With `auto` (the default), the addon follows your game client's language when a pack for it exists.
+### Recompensas à vista
+- `Lv+` quando a entrega sobe seu nível, XP e ouro.
+- Ícones dos itens com **seta verde nos upgrades** (Pawn, GearQuest Forever ou nível do item).
+- **Ícone de ouro** nas recompensas que não são upgrade mas valem um bom dinheiro (vendedor, ou Casa de Leilões com o Auctionator).
 
-Included packs:
-- `enUS`: English (required)
-- `ptBR`: Português (Brasil)
+### Para onde ir
+- Marcas para entregas em **masmorra** ou **caverna**, quests de grupo e **cadeias** (`Chain 2/4`).
+- Clique numa quest para ir até ela (Shortest Path Forever, TomTom ou o rastreio do jogo); **Rota** passa por todas as entregas, a mais perto primeiro.
+- **Parceiros de quest** (beta): jogadores na mesma quest perto de você, com Convidar / Sussurrar.
 
-### Adding a language pack
-1. Copy `Locales/enUS.lua` to `Locales/<code>.lua`, e.g. `deDE.lua`, `esES.lua`, `frFR.lua`.
-2. Change the first line to `ns:NewLocale("deDE", "Deutsch")`.
-3. Translate the strings and keep the `%d`/`%s` placeholders. If you leave a key out, the English text is used.
-4. Add `Locales\deDE.lua` to `Milkshakson-ReadyQuests.toc`, below `Locales\enUS.lua`.
+### Do seu jeito
+- Substitui o tracker do jogo, do Questie, do QuestMaster e do EllesmereUI (uma opção para cada).
+- Redimensionável, móvel, cores da **Aliança / Horda**, **Novidades** a cada atualização, inglês e português.
 
-To remove a pack, delete its line from the `.toc`.
+**Comandos:** `/rq` (`/mrq`) mostrar / esconder · `/rq route` planejar a rota · `/rq config` opções · `/rq help` todos os comandos
 
-## Support / Apoie
-If you enjoy the addon, you can buy me a coffee. The same links are in the in-game options panel, in copyable fields.
-- **PayPal:** [Donate](https://www.paypal.com/donate/?business=Q72ZP8CCJ6PFA&no_recurring=0&item_name=Buy+me+a+coffee+to+keep+my+WoW+Forever+addons+updated%21+%2F+Me+pague+um+caf%C3%A9+e+ajude+a+manter+os+addons+atualizados%21&currency_code=BRL)
-- **PIX (Brasil):** `2d8f2ae7-76df-497d-9afa-cb7d12dd73f9`
+---
+
+**More Milkshakson addons for WoW: Forever / Mais addons Milkshakson:** Run Away Little Girl, Phone, Ninjas, Rivals, Trader.
+
+MIT License · by JJC

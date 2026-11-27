@@ -4,6 +4,13 @@
 local ADDON, ns = ...
 
 ns.NOTES = {
+    { v = "2.14.0",
+      en = {
+        "**Alliance / Horde colors:** the window, its title and the partner box follow your faction (or the one you pick) — Options > Appearance. The window keeps its transparency.",
+      },
+      pt = {
+        "**Cores da Aliança / Horda:** a janela, o título e a caixa de parceiros seguem a sua facção (ou a que você escolher) — Opções > Aparência. A janela mantém a transparência.",
+      } },
     { v = "2.13.0",
       en = {
         "**Gold icon on rewards** that are not an upgrade but are worth good money (vendor price, or the Auction House price with Auctionator). Threshold in Options > List.",
@@ -40,6 +47,13 @@ function ns:ShowWhatsNew(force)
     if not (UI and UI.WhatsNew) then return end
     UI:WhatsNew({ title = "Ready Quests", version = Version(), notes = ns.NOTES,
         db = ReadyQuestsDB, lang = ns.localeCode, force = force })
+end
+
+-- Options > About: the addon's description (About.lua, same text as the README / CurseForge page)
+function ns:ShowAbout()
+    local UI = MilkshaksonUI
+    if not (UI and UI.About and ns.ABOUT) then return end
+    UI:About({ title = "Ready Quests", version = Version(), about = ns.ABOUT, lang = ns.localeCode })
 end
 
 local f = CreateFrame("Frame")

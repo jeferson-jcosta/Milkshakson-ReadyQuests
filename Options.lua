@@ -73,7 +73,7 @@ function ns:BuildOptions(db)
         { L.CFG_HELP_CHAT, function() SlashCmdList.READYQUESTS("help") end },
     })
 
-    UI:Buttons(p, { { L.WHATS_NEW, function() if ns.ShowWhatsNew then ns:ShowWhatsNew(true) end end } })
+    UI:Buttons(p, { { L.ABOUT, function() if ns.ShowAbout then ns:ShowAbout() end end }, { L.WHATS_NEW, function() if ns.ShowWhatsNew then ns:ShowWhatsNew(true) end end } })
 
     UI:Section(p, L.CFG_LOOK)
     UI:Note(p, L.CFG_THEME)

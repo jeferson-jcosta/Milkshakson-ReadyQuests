@@ -1,6 +1,7 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.14.0
+- **About** button in Options: what the addon does and its commands, in your language (same text as the GitHub and CurseForge pages). MilkshaksonUI v11.
 - **Alliance / Horde theme** for the windows (Options > Appearance: my faction / Alliance blue / Horde red), like Trader and Phone.
 
 ## 2.13.0
