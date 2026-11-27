@@ -29,7 +29,7 @@ local OWNER = "ReadyQuests"
 
 local db
 local defaults = { shown = true, locked = false, lockSize = false, autoHide = true, point = nil, locale = nil,
-    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false, showTaxi = true, upgradeSource = "auto",
+    width = WIDTH, maxHeight = 400, fitHeight = true, showRewards = true, showPlace = true, showChain = true, showKind = true, showDistance = false, showTaxi = true, upgradeSource = "auto", goldMin = 0,
     tab = "ready", collapsed = {}, showObjectives = true, autoSwitch = true,
     hideQuestie = true, hideBlizzard = true, hideQuestMaster = true, hideEllesmere = true, partners = true, partnersWhisper = true, collapsedWindow = false, avoidFDJ = true }
 local MIN_W, MIN_H, MAX_W, MAX_H = 220, 70, 800, 1200
@@ -1177,6 +1177,11 @@ local rows = {}
 ---------------------------------------------------------------------------
 local ICON_GOLD = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12|t"
 local ICON_UP = "|TInterface\\Buttons\\UI-MicroStream-Green:12:12|t"
+local function Money(c)
+    c = math.floor(c or 0)
+    if GetMoneyString then return GetMoneyString(c) end
+    return ("%dg %ds %dc"):format(c / 10000, (c / 100) % 100, c % 100)
+end
 local ICON_CHAIN = "|TInterface\\AddOns\\Milkshakson-ReadyQuests\\Media\\Chain:13:13|t"
 
 local function Icon(tex) return tex and ("|T%s:13:13|t"):format(tex) or "" end
@@ -1238,6 +1243,8 @@ local function AddItemLines(list, label)
             elseif it.upgradeDetail then
                 text = text .. " |cff999999(" .. it.upgradeDetail .. ")|r"
             end
+        elseif it.worth then
+            text = text .. " " .. ICON_GOLD .. "|cffffd100" .. L.REW_WORTH:format(Money(it.value)) .. "|r"
         elseif it.usable == false then
             text = text .. " |cffff4040" .. L.REW_UNUSABLE .. "|r"
         end
@@ -1286,8 +1293,15 @@ local function ItemButton_OnEnter(self)
     if it.upgrade then
         local why = it.upgradeDetail == "empty" and L.REW_EMPTY_SLOT or it.upgradeDetail
         GameTooltip:AddLine(L.REW_UPGRADE .. (why and (" (" .. why .. ")") or ""), 0, 1, 0)
+    elseif it.worth then
+        GameTooltip:AddLine(L.REW_WORTH:format(Money(it.value)), 1, 0.82, 0)
     elseif it.usable == false then
         GameTooltip:AddLine(L.REW_UNUSABLE, 1, 0.25, 0.25)
+    end
+    if (it.value or 0) > 0 then
+        local v = L.REW_VENDOR:format(Money(it.vendorValue or 0))
+        if it.ahValue then v = v .. "  " .. L.REW_AH:format(Money(it.ahValue)) end
+        GameTooltip:AddLine(v, 0.8, 0.8, 0.8)
     end
     GameTooltip:AddLine(L.HINT_ITEM, 0.5, 0.8, 1)
     GameTooltip:Show()
@@ -1322,6 +1336,10 @@ local function CreateItemButtons(row)
         b.up:SetSize(10, 10)
         b.up:SetPoint("BOTTOMRIGHT", 3, -2)
         b.up:SetTexture("Interface\\Buttons\\UI-MicroStream-Green")
+        b.gold = b:CreateTexture(nil, "OVERLAY")
+        b.gold:SetSize(10, 10)
+        b.gold:SetPoint("BOTTOMRIGHT", 3, -2)
+        b.gold:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
         local hl = b:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints()
         hl:SetColorTexture(1, 1, 1, 0.25)
@@ -1347,6 +1365,7 @@ local function SetItemButtons(row, q)
         -- Upgrades first so they are never cut off.
         table.sort(list, function(a, b)
             if (a[1].upgrade == true) ~= (b[1].upgrade == true) then return a[1].upgrade == true end
+            if (a[1].worth == true) ~= (b[1].worth == true) then return a[1].worth == true end
             return false
         end)
     end
@@ -1360,6 +1379,7 @@ local function SetItemButtons(row, q)
             b.icon:SetDesaturated(it.usable == false)
             if it.usable == false then b.icon:SetVertexColor(1, 0.3, 0.3) else b.icon:SetVertexColor(1, 1, 1) end
             b.up:SetShown(it.upgrade == true)
+            b.gold:SetShown(it.upgrade ~= true and it.worth == true)
             b:ClearAllPoints()
             b:SetPoint("RIGHT", anchor, "LEFT", anchor == row.tags and -4 or -2, 0)
             b:Show()

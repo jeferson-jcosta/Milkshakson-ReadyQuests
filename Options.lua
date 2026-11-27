@@ -34,6 +34,8 @@ function ns:BuildOptions(db)
     }, function() return db.upgradeSource or "auto" end,
        function(v) db.upgradeSource = v; ns:InvalidateRewards(); R() end)
     UI:Note(p, L.CFG_UPGRADE_NOTE)
+    UI:Slider(p, L.CFG_GOLD_MIN, 0, 1000, 10, "%d", function() return db.goldMin or 0 end,
+        function(v) db.goldMin = v; ns:InvalidateRewards(); R() end, L.CFG_GOLD_MIN_TIP)
 
     UI:Section(p, L.CFG_TRACKER)
     UI:Check(p, L.CFG_SHOW_OBJ, nil, function() return db.showObjectives end, function(v) db.showObjectives = v; R() end)

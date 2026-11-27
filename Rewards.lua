@@ -153,6 +153,46 @@ local function CheckUpgrade(link, usable)
 end
 
 ---------------------------------------------------------------------------
+-- Money value of an item: the game's vendor sell price; the Auction House
+-- price only if Auctionator is installed (optional, its public v1 API).
+-- Returns total value (x count), vendor total, AH total (nil without data).
+---------------------------------------------------------------------------
+local function AHPrice(link, itemID)
+    local A = rawget(_G, "Auctionator")
+    local api = type(A) == "table" and type(A.API) == "table" and A.API.v1
+    if type(api) ~= "table" then return nil end
+    local p
+    if link and type(api.GetAuctionPriceByItemLink) == "function" then
+        local ok, v = pcall(api.GetAuctionPriceByItemLink, "Milkshakson-ReadyQuests", link)
+        if ok and type(v) == "number" then p = v end
+    end
+    if not p and itemID and type(api.GetAuctionPriceByItemID) == "function" then
+        local ok, v = pcall(api.GetAuctionPriceByItemID, "Milkshakson-ReadyQuests", itemID)
+        if ok and type(v) == "number" then p = v end
+    end
+    return p
+end
+
+local function ItemValue(link, itemID, count)
+    count = count or 1
+    local GetInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    local sell = link and select(11, GetInfo(link)) or 0
+    local vendor = (tonumber(sell) or 0) * count
+    local ah = AHPrice(link, itemID)
+    ah = ah and ah * count or nil
+    return math.max(vendor, ah or 0), vendor, ah
+end
+
+-- "Good money" threshold in copper: Options > List > value (silver); 0 = by
+-- level (level^2 x 5 copper: 5s at 10, 20s at 20, 80s at 40, 1g80s at 60).
+function ns:GoldThreshold()
+    local s = tonumber(ns.GetSetting and ns.GetSetting("goldMin")) or 0
+    if s > 0 then return s * 100 end
+    local lvl = UnitLevel and UnitLevel("player") or 1
+    return math.max(1, lvl) ^ 2 * 5
+end
+
+---------------------------------------------------------------------------
 -- Reading rewards
 ---------------------------------------------------------------------------
 local function WithSelected(questID, fn)
@@ -178,6 +218,7 @@ local function ReadItem(kind, index, questID, name, texture, count, quality, usa
     local up, detail = CheckUpgrade(link, usable)
     if up == nil then item.loading = true end
     item.upgrade, item.upgradeDetail = up or false, detail
+    item.value, item.vendorValue, item.ahValue = ItemValue(link, itemID, item.count)
     return item
 end
 
@@ -212,6 +253,13 @@ local function Load(questID)
     for _, it in ipairs(r.choices) do if it.loading then r.loading = true end end
     for _, it in ipairs(r.items) do if it.upgrade then r.upgrade = true end end
     for _, it in ipairs(r.choices) do if it.upgrade then r.upgrade = true end end
+    -- not an upgrade but worth good money -> gold icon
+    local min = ns:GoldThreshold()
+    for _, list in ipairs({ r.items, r.choices }) do
+        for _, it in ipairs(list) do
+            it.worth = not it.upgrade and (it.value or 0) > 0 and it.value >= min or false
+        end
+    end
     return r
 end
 

@@ -1,6 +1,7 @@
 # Changelog - Milkshakson - Ready Quests
 
 ## Unreleased
+- **Gold icon on rewards** that are not an upgrade but are worth good money (vendor price, or the Auction House price if Auctionator is installed — the higher). Threshold in Options > List (silver; 0 = by your level). The item tooltip shows the vendor / AH value.
 - Options: changing the language changes the options page right away (it used to need /reload) — MilkshaksonUI v9.
 
 ## 2.12.0
