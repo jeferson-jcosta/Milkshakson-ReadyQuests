@@ -1,5 +1,8 @@
 # Changelog - Milkshakson - Ready Quests
 
+## Unreleased
+- Options: changing the language changes the options page right away (it used to need /reload) — MilkshaksonUI v9.
+
 ## 2.12.0
 - Title bar: collapse button, title, search, options gear and close button all centered on the same line.
 - Messages also appear in **Milkshakson-Phone**'s "Milkshakson-Addons" chat when Phone is installed (optional) — Phone replaces the game's chat, so they were invisible there.
