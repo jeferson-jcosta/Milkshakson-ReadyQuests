@@ -24,3 +24,4 @@ Extra.lua
 ReadyQuests.lua
 Partners.lua
 Options.lua
+Notes.lua

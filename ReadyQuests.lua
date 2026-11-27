@@ -1177,10 +1177,18 @@ local rows = {}
 ---------------------------------------------------------------------------
 local ICON_GOLD = "|TInterface\\MoneyFrame\\UI-GoldIcon:12:12|t"
 local ICON_UP = "|TInterface\\Buttons\\UI-MicroStream-Green:12:12|t"
+local COIN_G = "|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t"
+local COIN_S = "|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t"
+local COIN_C = "|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t"
+-- money as in the bags: coin icons, never "1g 2s 3c"
 local function Money(c)
-    c = math.floor(c or 0)
-    if GetMoneyString then return GetMoneyString(c) end
-    return ("%dg %ds %dc"):format(c / 10000, (c / 100) % 100, c % 100)
+    c = math.floor(math.abs(tonumber(c) or 0) + 0.5)
+    local g, s, cp = math.floor(c / 10000), math.floor(c / 100) % 100, c % 100
+    local t = {}
+    if g > 0 then t[#t + 1] = (BreakUpLargeNumbers and BreakUpLargeNumbers(g) or g) .. COIN_G end
+    if g > 0 or s > 0 then t[#t + 1] = s .. COIN_S end
+    t[#t + 1] = cp .. COIN_C
+    return table.concat(t, " ")
 end
 local ICON_CHAIN = "|TInterface\\AddOns\\Milkshakson-ReadyQuests\\Media\\Chain:13:13|t"
 
@@ -1268,7 +1276,7 @@ local function AddRewardTooltip(q)
         end
     end
     if r.money > 0 then
-        GameTooltip:AddLine(L.REW_MONEY:format(GetMoneyString and GetMoneyString(r.money) or (r.money .. "c")), 1, 1, 1)
+        GameTooltip:AddLine(L.REW_MONEY:format(Money(r.money)), 1, 1, 1)
     end
     AddItemLines(r.items, L.REW_ITEMS)
     AddItemLines(r.choices, L.REW_CHOICE)
