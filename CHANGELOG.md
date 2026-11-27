@@ -1,6 +1,6 @@
 # Changelog - Milkshakson - Ready Quests
 
-## Unreleased
+## 2.13.0
 - Money shows with the gold / silver / copper coin icons, like the bags.
 - **What's new** popup: after an update, the release notes of the new version show once (Options > "What's new" shows them again; a checkbox turns it off). MilkshaksonUI v10.
 - **Gold icon on rewards** that are not an upgrade but are worth good money (vendor price, or the Auction House price if Auctionator is installed — the higher). Threshold in Options > List (silver; 0 = by your level). The item tooltip shows the vendor / AH value.
