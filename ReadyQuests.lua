@@ -863,14 +863,17 @@ local function UpdateDock()
 end
 ns.UpdateDock = function() UpdateDock() end
 
+-- Title line: every item of it (collapse, title, search, gear, close) is centered
+-- on the same line, TITLE_Y below the top edge.
+local TITLE_Y = -13
 local header = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-header:SetPoint("TOPLEFT", 24, -7)
+header:SetPoint("LEFT", frame, "TOPLEFT", 24, TITLE_Y)
 
 -- Collapse / expand button (like Questie's tracker): keeps only the title bar.
 local Refresh
 local collapseBtn = CreateFrame("Button", nil, frame)
 collapseBtn:SetSize(14, 14)
-collapseBtn:SetPoint("TOPLEFT", 7, -6)
+collapseBtn:SetPoint("CENTER", frame, "TOPLEFT", 14, TITLE_Y)
 local function UpdateCollapseButton()
     local tex = db and db.collapsedWindow and "Interface\\Buttons\\UI-PlusButton-" or "Interface\\Buttons\\UI-MinusButton-"
     collapseBtn:SetNormalTexture(tex .. "Up")
@@ -892,7 +895,8 @@ collapseBtn:SetScript("OnLeave", GameTooltip_Hide)
 
 local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
 close:SetSize(20, 20)
-close:SetPoint("TOPRIGHT", 0, 0)
+-- (the close button's art sits a little high in its frame: 1 px lower)
+close:SetPoint("CENTER", frame, "TOPRIGHT", -10, TITLE_Y - 1)
 close:SetScript("OnClick", function()
     db.shown = false
     frame:Hide()
@@ -1096,7 +1100,9 @@ end)
 local searchBtn = CreateFrame("Button", "ReadyQuestsSearchButton", frame)
 searchBtn:SetSize(14, 14)
 local sicon = searchBtn:CreateTexture(nil, "ARTWORK")
-sicon:SetAllPoints()
+-- the magnifier is drawn high in its texture: 2 px lower so it lines up with the gear
+sicon:SetPoint("TOPLEFT", 0, -2)
+sicon:SetPoint("BOTTOMRIGHT", 0, -2)
 sicon:SetTexture("Interface\\Common\\UI-Searchbox-Icon")
 searchBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
 searchBtn:SetScript("OnClick", function() SetSearchOpen(not searchOpen) end)
@@ -1957,9 +1963,9 @@ function Refresh()
     shareBtn:ClearAllPoints()
     shareBtn:SetPoint("RIGHT", routeBtn:IsShown() and routeBtn or close, "LEFT", -2, 0)
     shareBtn:SetShown(InDungeonGroup())
-    -- Small icons centered on the title line (the close button sits 3 px higher).
+    -- Small icons centered on the title line (as the close button).
     configBtn:ClearAllPoints()
-    configBtn:SetPoint("RIGHT", (shareBtn:IsShown() and shareBtn) or (routeBtn:IsShown() and routeBtn) or close, "LEFT", -4, -3)
+    configBtn:SetPoint("RIGHT", (shareBtn:IsShown() and shareBtn) or (routeBtn:IsShown() and routeBtn) or close, "LEFT", -4, 1)
     searchBtn:ClearAllPoints()
     searchBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
 
